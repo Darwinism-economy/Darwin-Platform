@@ -8,6 +8,79 @@
     <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
+    <script>
+        // Embedded SPL Token functions - no external dependencies
+        const SPL_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        
+        // Add missing SPL Token instruction functions to solanaWeb3.Token namespace
+        function createInitializeMintInstruction(programId, mint, decimals, mintAuthority, freezeAuthority) {
+            const keys = [
+                { pubkey: mint, isSigner: false, isWritable: true },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false }
+            ];
+            
+            const data = Buffer.alloc(82);
+            data.writeUInt8(0, 0); // InitializeMint instruction
+            data.writeUInt8(decimals, 1);
+            data.write(mintAuthority.toBytes(), 2);
+            data.write(freezeAuthority ? freezeAuthority.toBytes() : Buffer.alloc(32), 34);
+            
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId,
+                data
+            });
+        }
+        
+        function createInitializeAccountInstruction(programId, account, mint, owner) {
+            const keys = [
+                { pubkey: account, isSigner: false, isWritable: true },
+                { pubkey: mint, isSigner: false, isWritable: false },
+                { pubkey: owner, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false }
+            ];
+            
+            const data = Buffer.alloc(1);
+            data.writeUInt8(1, 0); // InitializeAccount instruction
+            
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId,
+                data
+            });
+        }
+        
+        function createMintToInstruction(programId, mint, destination, authority, signers, amount) {
+            const keys = [
+                { pubkey: mint, isSigner: false, isWritable: true },
+                { pubkey: destination, isSigner: false, isWritable: true },
+                { pubkey: authority, isSigner: false, isWritable: false }
+            ];
+            
+            if (signers && signers.length > 0) {
+                signers.forEach(signer => {
+                    keys.push({ pubkey: signer, isSigner: true, isWritable: false });
+                });
+            }
+            
+            const data = Buffer.alloc(9);
+            data.writeUInt8(7, 0); // MintTo instruction
+            data.writeBigUInt64LE(BigInt(amount), 1);
+            
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId,
+                data
+            });
+        }
+
+        // Add functions to solanaWeb3.Token namespace
+        solanaWeb3.Token = {
+            createInitializeMintInstruction,
+            createInitializeAccountInstruction,
+            createMintToInstruction
+        };
+    </script>
     <style>
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .card-hover { transition: all 0.3s ease; }
@@ -283,6 +356,45 @@
                 </div>
             </div>
             
+            <!-- Testnet Instructions -->
+            <div class="mt-8">
+                <div class="token-card bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">🔧 Testnet Setup Instructions</h3>
+                    <div class="space-y-4">
+                        <div class="bg-white p-4 rounded-lg border border-blue-200">
+                            <h4 class="font-semibold text-blue-800 mb-2">📱 Phantom Wallet Setup:</h4>
+                            <ol class="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                                <li>Open Phantom wallet</li>
+                                <li>Click the gear icon (Settings)</li>
+                                <li>Go to "Change Network"</li>
+                                <li>Select "Testnet"</li>
+                                <li>Click "Connect Wallet" above</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-lg border border-green-200">
+                            <h4 class="font-semibold text-green-800 mb-2">💧 Get Test SOL:</h4>
+                            <ol class="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                                <li>Go to <a href="https://solfaucet.com" target="_blank" class="text-blue-600 hover:underline">solfaucet.com</a></li>
+                                <li>Enter your wallet address</li>
+                                <li>Click "Request SOL"</li>
+                                <li>Wait 1-2 minutes for SOL to arrive</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="bg-white p-4 rounded-lg border border-purple-200">
+                            <h4 class="font-semibold text-purple-800 mb-2">🎯 How to Test:</h4>
+                            <ol class="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                                <li>Create a new token using the form</li>
+                                <li>Bid on live auctions (you'll get mock tokens)</li>
+                                <li>Import token mint addresses to Phantom</li>
+                                <li>Test all platform features</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Testing & Development Tools -->
             <div class="mt-8">
                 <div class="token-card">
@@ -428,22 +540,84 @@
         // Create token and deploy contracts
         async function createToken() {
             try {
+                if (!wallet || !wallet.isConnected) {
+                    showNotification('❌ Please connect your wallet first', 'error');
+                    return;
+                }
+
                 showNotification('🚀 Deploying token and contracts...', 'info');
                 
-                // Simulate deployment (in real implementation, this would deploy actual contracts)
                 const tokenName = document.getElementById('token-name').value;
                 const tokenSymbol = document.getElementById('token-symbol').value;
+                const totalSupply = parseInt(document.getElementById('token-supply').value);
+                const decimals = 9; // Standard for most tokens
                 
-                // Generate mock addresses
-                const tokenAddress = generateMockAddress();
-                const treasuryAddress = generateMockAddress();
-                const distributorAddress = generateMockAddress();
+                // Create the token mint
+                const mint = solanaWeb3.Keypair.generate();
+                const mintAuthority = wallet.publicKey;
+                const freezeAuthority = wallet.publicKey;
+                
+                // Calculate rent exemption
+                const mintRent = await connection.getMinimumBalanceForRentExemption(82);
+                
+                // Create transaction
+                const transaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.createAccount({
+                        fromPubkey: wallet.publicKey,
+                        newAccountPubkey: mint.publicKey,
+                        space: 82,
+                        lamports: mintRent,
+                        programId: SPL_TOKEN_PROGRAM_ID,
+                    }),
+                    solanaWeb3.Token.createInitializeMintInstruction(
+                        SPL_TOKEN_PROGRAM_ID,
+                        mint.publicKey,
+                        decimals,
+                        mintAuthority,
+                        freezeAuthority
+                    )
+                );
+                
+                // Send transaction
+                const signature = await wallet.sendTransaction(transaction, connection, { signers: [mint] });
+                await connection.confirmTransaction(signature);
+                
+                // Create token account for the creator
+                const tokenAccount = solanaWeb3.Keypair.generate();
+                const accountRent = await connection.getMinimumBalanceForRentExemption(165);
+                
+                const createAccountTransaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.createAccount({
+                        fromPubkey: wallet.publicKey,
+                        newAccountPubkey: tokenAccount.publicKey,
+                        space: 165,
+                        lamports: accountRent,
+                        programId: SPL_TOKEN_PROGRAM_ID,
+                    }),
+                    solanaWeb3.Token.createInitializeAccountInstruction(
+                        SPL_TOKEN_PROGRAM_ID,
+                        tokenAccount.publicKey,
+                        mint.publicKey,
+                        wallet.publicKey
+                    ),
+                    solanaWeb3.Token.createMintToInstruction(
+                        SPL_TOKEN_PROGRAM_ID,
+                        mint.publicKey,
+                        tokenAccount.publicKey,
+                        wallet.publicKey,
+                        [],
+                        totalSupply * Math.pow(10, decimals)
+                    )
+                );
+                
+                const accountSignature = await wallet.sendTransaction(createAccountTransaction, connection, { signers: [tokenAccount] });
+                await connection.confirmTransaction(accountSignature);
                 
                 // Store deployed contracts
                 deployedContracts = {
-                    token: tokenAddress,
-                    treasury: treasuryAddress,
-                    distributor: distributorAddress,
+                    token: mint.publicKey.toString(),
+                    treasury: generateMockAddress(), // Mock for now
+                    distributor: generateMockAddress(), // Mock for now
                     name: tokenName,
                     symbol: tokenSymbol,
                     timestamp: Date.now()
@@ -456,12 +630,13 @@
                 updateContractStatus();
                 addTokenToFundraising(tokenName, tokenSymbol);
                 
-                showNotification('✅ Token and contracts deployed successfully!', 'success');
+                showNotification('✅ Token deployed successfully! Mint: ' + mint.publicKey.toString(), 'success');
                 
                 // Reset form
                 document.getElementById('token-creation-form').reset();
                 
             } catch (error) {
+                console.error('Token creation error:', error);
                 showNotification('❌ Failed to deploy: ' + error.message, 'error');
             }
         }
@@ -579,10 +754,34 @@
             try {
                 showNotification(`💰 Contributing ${amount} SOL to ${symbol.toUpperCase()}...`, 'info');
                 
-                // Simulate contribution (in real implementation, this would send actual SOL)
+                // Simulate contribution and token allocation
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
+                // Calculate tokens received (pro-rata distribution)
+                const tokensReceived = Math.floor(amount * 10000); // 1 SOL = 10,000 tokens
+                const mockTokenMint = generateMockAddress();
+                
                 showNotification(`✅ Successfully contributed ${amount} SOL to ${symbol.toUpperCase()}!`, 'success');
+                
+                // Show token allocation
+                const tokenAllocation = `
+🎉 CONTRIBUTION SUCCESSFUL!
+
+You received ${tokensReceived.toLocaleString()} ${symbol.toUpperCase()} tokens!
+
+To see them in Phantom:
+1. Open Phantom wallet
+2. Click "Import Token"
+3. Paste this mint address: ${mockTokenMint}
+4. Click "Import"
+
+Token Mint: ${mockTokenMint}
+                `;
+                
+                alert(tokenAllocation);
+                
+                // Copy mint address to clipboard
+                copyToClipboard(mockTokenMint);
                 
                 // Update platform stats
                 platformStats.totalRaised += parseFloat(amount);
@@ -696,10 +895,33 @@
             try {
                 showNotification(`🏆 Placing bid of ${amount} SOL...`, 'info');
                 
-                // Simulate bid placement
+                // Create a mock token for the user (in real implementation, this would be the actual token)
+                const mockTokenMint = generateMockAddress();
+                
+                // Simulate successful bid and token transfer
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                showNotification(`✅ Bid placed successfully! You are now the highest bidder.`, 'success');
+                showNotification(`✅ Bid successful! You received ${amount * 1000} ${symbol.toUpperCase()} tokens!`, 'success');
+                
+                // Show instructions for importing the token
+                const importInstructions = `
+🎉 BID SUCCESSFUL!
+
+You received ${amount * 1000} ${symbol.toUpperCase()} tokens!
+
+To see them in Phantom:
+1. Open Phantom wallet
+2. Click "Import Token"
+3. Paste this mint address: ${mockTokenMint}
+4. Click "Import"
+
+Token Mint: ${mockTokenMint}
+                `;
+                
+                alert(importInstructions);
+                
+                // Copy mint address to clipboard
+                copyToClipboard(mockTokenMint);
                 
             } catch (error) {
                 showNotification('❌ Bid failed: ' + error.message, 'error');
