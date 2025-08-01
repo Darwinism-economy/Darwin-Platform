@@ -8,55 +8,84 @@
     <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
-    
-    <!-- Load SPL Token with explicit global assignment -->
     <script>
-        // Pre-define the global variable
-        window.splToken = {};
+        // Embedded SPL Token functions - no external dependencies
+        const SPL_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
         
-        // Load SPL Token library
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js';
-        script.onload = function() {
-            console.log('SPL Token library loaded successfully');
-            // Ensure it's available globally
-            if (typeof splToken !== 'undefined') {
-                window.splToken = splToken;
-                console.log('SPL Token assigned to window.splToken');
-            }
-        };
-        script.onerror = function() {
-            console.error('Failed to load SPL Token library');
-        };
-        document.head.appendChild(script);
-    </script>
-    <script>
-        // Simple SPL Token library detection
-        let splTokenLibrary = null;
-        
-        function detectSPLTokenLibrary() {
-            if (typeof splToken !== 'undefined' && typeof splToken.createMint === 'function') {
-                splTokenLibrary = splToken;
-                console.log('✅ Using splToken directly');
-                return true;
-            } else if (typeof window.splToken !== 'undefined' && typeof window.splToken.createMint === 'function') {
-                splTokenLibrary = window.splToken;
-                console.log('✅ Using window.splToken');
-                return true;
-            } else if (typeof window.spl !== 'undefined' && typeof window.spl.createMint === 'function') {
-                splTokenLibrary = window.spl;
-                console.log('✅ Using window.spl');
-                return true;
-            }
+        async function createMint(connection, payer, mintAuthority, freezeAuthority, decimals) {
+            const mint = solanaWeb3.Keypair.generate();
             
-            console.log('❌ SPL Token library not found');
-            return false;
+            const lamports = await solanaWeb3.SystemProgram.getMinRentForExemptMint(connection);
+            
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.SystemProgram.createAccount({
+                    fromPubkey: payer.publicKey,
+                    newAccountPubkey: mint.publicKey,
+                    space: 82,
+                    lamports,
+                    programId: SPL_TOKEN_PROGRAM_ID,
+                }),
+                solanaWeb3.Token.createInitializeMintInstruction(
+                    SPL_TOKEN_PROGRAM_ID,
+                    mint.publicKey,
+                    decimals,
+                    mintAuthority,
+                    freezeAuthority
+                )
+            );
+            
+            const signature = await wallet.sendTransaction(transaction, connection, {
+                signers: [mint],
+            });
+            
+            await connection.confirmTransaction(signature);
+            return mint.publicKey;
         }
         
-        // Try to detect library after page loads
-        window.addEventListener('load', function() {
-            setTimeout(detectSPLTokenLibrary, 2000);
-        });
+        async function createAccount(connection, payer, mint, owner) {
+            const account = solanaWeb3.Keypair.generate();
+            
+            const lamports = await solanaWeb3.SystemProgram.getMinRentForExemptAccount(connection);
+            
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.SystemProgram.createAccount({
+                    fromPubkey: payer.publicKey,
+                    newAccountPubkey: account.publicKey,
+                    space: 165,
+                    lamports,
+                    programId: SPL_TOKEN_PROGRAM_ID,
+                }),
+                solanaWeb3.Token.createInitializeAccountInstruction(
+                    SPL_TOKEN_PROGRAM_ID,
+                    account.publicKey,
+                    mint,
+                    owner
+                )
+            );
+            
+            const signature = await wallet.sendTransaction(transaction, connection, {
+                signers: [account],
+            });
+            
+            await connection.confirmTransaction(signature);
+            return account.publicKey;
+        }
+        
+        async function mintTo(connection, payer, mint, destination, authority, amount) {
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.Token.createMintToInstruction(
+                    SPL_TOKEN_PROGRAM_ID,
+                    mint,
+                    destination,
+                    authority,
+                    [],
+                    amount
+                )
+            );
+            
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction(signature);
+        }
     </script>
     <style>
         .btn-primary {
@@ -2018,13 +2047,10 @@
             try {
                 showNotification('🚀 Starting smart contract deployment...', 'info');
                 
-                // Simple SPL Token library check
-                if (!splTokenLibrary || typeof splTokenLibrary.createMint !== 'function') {
-                    // Try to detect library one more time
-                    if (!detectSPLTokenLibrary()) {
-                        showNotification('❌ SPL Token library not available. Please refresh the page.', 'error');
-                        return;
-                    }
+                // Check embedded functions
+                if (typeof createMint !== 'function' || typeof createAccount !== 'function' || typeof mintTo !== 'function') {
+                    showNotification('❌ SPL Token functions not available. Please refresh the page.', 'error');
+                    return;
                 }
                 
                 showNotification('✅ SPL Token library verified!', 'success');
@@ -2041,7 +2067,7 @@
                 showNotification(`✅ Sufficient SOL found! (${balanceInSol.toFixed(4)} SOL) Creating token mint...`, 'info');
                 
                 // Create token mint
-                const tokenMint = await splTokenLibrary.createMint(
+                const tokenMint = await createMint(
                     connection,
                     wallet,
                     wallet.publicKey,
@@ -2052,7 +2078,7 @@
                 showNotification(`✅ Token mint created: ${tokenMint.toString().slice(0, 8)}...`, 'success');
                 
                 // Create token account
-                const tokenAccount = await splTokenLibrary.createAccount(
+                const tokenAccount = await createAccount(
                     connection,
                     wallet,
                     tokenMint,
@@ -2062,12 +2088,12 @@
                 showNotification(`✅ Token account created: ${tokenAccount.toString().slice(0, 8)}...`, 'success');
                 
                 // Mint initial supply (1 billion tokens)
-                await splTokenLibrary.mintTo(
+                await mintTo(
                     connection,
                     wallet,
                     tokenMint,
                     tokenAccount,
-                    wallet,
+                    wallet.publicKey,
                     1000000000000 // 1 billion tokens with 9 decimals
                 );
                 
