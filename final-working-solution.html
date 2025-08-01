@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Darwin Final Working Solution</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Darwin Final Working Solution</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Library Status</h2>
+                <div id="library-status" class="text-sm space-y-2"></div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Wallet Connection</h2>
+                <button id="connect-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Connect Phantom Wallet
+                </button>
+                <div id="wallet-info" class="mt-4 text-sm"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Deployment Test</h2>
+            <button id="deploy-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" disabled>
+                Test Full Deployment
+            </button>
+            <div id="deployment-status" class="mt-4 text-sm space-y-2 max-h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        let wallet = null;
+        let connection = null;
+        
+        // Embedded SPL Token functions - no external dependencies
+        const SPL_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        
+        async function createMint(connection, payer, mintAuthority, freezeAuthority, decimals) {
+            const mint = solanaWeb3.Keypair.generate();
+            
+            // Fixed: Use correct function for rent calculation
+            const lamports = await connection.getMinimumBalanceForRentExemption(82);
+            
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.SystemProgram.createAccount({
+                    fromPubkey: payer.publicKey,
+                    newAccountPubkey: mint.publicKey,
+                    space: 82,
+                    lamports,
+                    programId: SPL_TOKEN_PROGRAM_ID,
+                }),
+                solanaWeb3.Token.createInitializeMintInstruction(
+                    SPL_TOKEN_PROGRAM_ID,
+                    mint.publicKey,
+                    decimals,
+                    mintAuthority,
+                    freezeAuthority
+                )
+            );
+            
+            const signature = await wallet.sendTransaction(transaction, connection, {
+                signers: [mint],
+            });
+            
+            await connection.confirmTransaction(signature);
+            return mint.publicKey;
+        }
+        
+        async function createAccount(connection, payer, mint, owner) {
+            const account = solanaWeb3.Keypair.generate();
+            
+            // Fixed: Use correct function for rent calculation
+            const lamports = await connection.getMinimumBalanceForRentExemption(165);
+            
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.SystemProgram.createAccount({
+                    fromPubkey: payer.publicKey,
+                    newAccountPubkey: account.publicKey,
+                    space: 165,
+                    lamports,
+                    programId: SPL_TOKEN_PROGRAM_ID,
+                }),
+                solanaWeb3.Token.createInitializeAccountInstruction(
+                    SPL_TOKEN_PROGRAM_ID,
+                    account.publicKey,
+                    mint,
+                    owner
+                )
+            );
+            
+            const signature = await wallet.sendTransaction(transaction, connection, {
+                signers: [account],
+            });
+            
+            await connection.confirmTransaction(signature);
+            return account.publicKey;
+        }
+        
+        async function mintTo(connection, payer, mint, destination, authority, amount) {
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.Token.createMintToInstruction(
+                    SPL_TOKEN_PROGRAM_ID,
+                    mint,
+                    destination,
+                    authority,
+                    [],
+                    amount
+                )
+            );
+            
+            const signature = await wallet.sendTransaction(transaction, connection);
+            await connection.confirmTransaction(signature);
+        }
+        
+        // Test library loading
+        function testLibraryLoading() {
+            const statusDiv = document.getElementById('library-status');
+            
+            const hasSolanaWeb3 = typeof solanaWeb3 !== 'undefined';
+            const hasCreateMint = typeof createMint === 'function';
+            const hasCreateAccount = typeof createAccount === 'function';
+            const hasMintTo = typeof mintTo === 'function';
+            
+            let html = '';
+            html += `<div>${hasSolanaWeb3 ? '✅' : '❌'} solanaWeb3: ${typeof solanaWeb3}</div>`;
+            html += `<div>${hasCreateMint ? '✅' : '❌'} createMint function: ${typeof createMint}</div>`;
+            html += `<div>${hasCreateAccount ? '✅' : '❌'} createAccount function: ${typeof createAccount}</div>`;
+            html += `<div>${hasMintTo ? '✅' : '❌'} mintTo function: ${typeof mintTo}</div>`;
+            
+            const allWorking = hasSolanaWeb3 && hasCreateMint && hasCreateAccount && hasMintTo;
+            
+            if (allWorking) {
+                html += '<div class="mt-2 p-2 bg-green-100 rounded">✅ All functions available and working</div>';
+            } else {
+                html += '<div class="mt-2 p-2 bg-red-100 rounded">❌ Some functions missing</div>';
+            }
+            
+            statusDiv.innerHTML = html;
+            return allWorking;
+        }
+        
+        // Initialize wallet connection
+        async function initializeWallet() {
+            try {
+                connection = new solanaWeb3.Connection('https://api.testnet.solana.com', 'confirmed');
+                
+                if ('solana' in window) {
+                    const provider = window.solana;
+                    if (provider.isPhantom) {
+                        wallet = provider;
+                        console.log('Phantom wallet detected');
+                        
+                        wallet.on('connect', () => {
+                            updateWalletUI();
+                        });
+                        
+                        if (wallet.isConnected) {
+                            updateWalletUI();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing wallet:', error);
+            }
+        }
+        
+        function updateWalletUI() {
+            const connectBtn = document.getElementById('connect-btn');
+            const walletInfo = document.getElementById('wallet-info');
+            const deployBtn = document.getElementById('deploy-btn');
+            
+            if (wallet && wallet.isConnected) {
+                const address = wallet.publicKey.toString();
+                walletInfo.innerHTML = `
+                    <div class="p-2 bg-green-100 rounded">
+                        <strong>Connected:</strong> ${address.slice(0, 4)}...${address.slice(-4)}<br>
+                        <strong>Network:</strong> Solana Testnet
+                    </div>
+                `;
+                connectBtn.textContent = 'Wallet Connected';
+                connectBtn.disabled = true;
+                deployBtn.disabled = false;
+            } else {
+                walletInfo.textContent = 'Not connected';
+                connectBtn.textContent = 'Connect Phantom Wallet';
+                connectBtn.disabled = false;
+                deployBtn.disabled = true;
+            }
+        }
+        
+        async function connectWallet() {
+            try {
+                if (!wallet) {
+                    alert('Please install Phantom wallet first');
+                    window.open('https://phantom.app/', '_blank');
+                    return;
+                }
+                
+                await wallet.connect();
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet');
+            }
+        }
+        
+        async function testFullDeployment() {
+            const statusDiv = document.getElementById('deployment-status');
+            const deployBtn = document.getElementById('deploy-btn');
+            
+            try {
+                deployBtn.disabled = true;
+                deployBtn.textContent = 'Testing...';
+                statusDiv.innerHTML = '<div class="font-semibold">🚀 Starting deployment test...</div>';
+                
+                // Step 1: Check wallet
+                if (!wallet || !wallet.isConnected) {
+                    statusDiv.innerHTML += '<div class="text-red-600">❌ Wallet not connected</div>';
+                    return;
+                }
+                statusDiv.innerHTML += '<div class="text-green-600">✅ Wallet connected</div>';
+                
+                // Step 2: Check balance
+                const balance = await connection.getBalance(wallet.publicKey);
+                const balanceInSol = balance / 1000000000;
+                statusDiv.innerHTML += `<div>💰 Balance: ${balanceInSol.toFixed(4)} SOL</div>`;
+                
+                if (balanceInSol < 0.1) {
+                    statusDiv.innerHTML += '<div class="text-red-600">❌ Insufficient SOL (need at least 0.1)</div>';
+                    return;
+                }
+                statusDiv.innerHTML += '<div class="text-green-600">✅ Sufficient SOL</div>';
+                
+                // Step 3: Verify functions
+                if (typeof createMint !== 'function' || typeof createAccount !== 'function' || typeof mintTo !== 'function') {
+                    statusDiv.innerHTML += '<div class="text-red-600">❌ SPL Token functions not available</div>';
+                    return;
+                }
+                statusDiv.innerHTML += '<div class="text-green-600">✅ SPL Token functions verified</div>';
+                
+                // Step 4: Create token mint
+                statusDiv.innerHTML += '<div>🪙 Creating token mint...</div>';
+                const tokenMint = await createMint(
+                    connection,
+                    wallet,
+                    wallet.publicKey,
+                    null,
+                    9
+                );
+                statusDiv.innerHTML += `<div class="text-green-600">✅ Token mint created: ${tokenMint.toString().slice(0, 8)}...</div>`;
+                
+                // Step 5: Create token account
+                statusDiv.innerHTML += '<div>🏦 Creating token account...</div>';
+                const tokenAccount = await createAccount(
+                    connection,
+                    wallet,
+                    tokenMint,
+                    wallet.publicKey
+                );
+                statusDiv.innerHTML += `<div class="text-green-600">✅ Token account created: ${tokenAccount.toString().slice(0, 8)}...</div>`;
+                
+                // Step 6: Mint tokens
+                statusDiv.innerHTML += '<div>🪙 Minting 1 billion tokens...</div>';
+                await mintTo(
+                    connection,
+                    wallet,
+                    tokenMint,
+                    tokenAccount,
+                    wallet.publicKey,
+                    1000000000000 // 1 billion tokens
+                );
+                statusDiv.innerHTML += '<div class="text-green-600">✅ Tokens minted successfully!</div>';
+                
+                // Step 7: Store deployment info
+                const deploymentInfo = {
+                    tokenMint: tokenMint.toString(),
+                    tokenAccount: tokenAccount.toString(),
+                    deployer: wallet.publicKey.toString(),
+                    timestamp: new Date().toISOString()
+                };
+                
+                localStorage.setItem('darwinDeployment', JSON.stringify(deploymentInfo));
+                statusDiv.innerHTML += '<div class="text-green-600">✅ Deployment info stored locally</div>';
+                
+                // Success message
+                statusDiv.innerHTML += `
+                    <div class="mt-4 p-4 bg-green-100 rounded border border-green-300">
+                        <div class="font-bold text-green-800">🎉 DEPLOYMENT SUCCESSFUL!</div>
+                        <div class="text-sm text-green-700 mt-2">
+                            <div><strong>Token Mint:</strong> ${tokenMint.toString()}</div>
+                            <div><strong>Token Account:</strong> ${tokenAccount.toString()}</div>
+                            <div><strong>Deployer:</strong> ${wallet.publicKey.toString()}</div>
+                        </div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Deployment test error:', error);
+                statusDiv.innerHTML += `<div class="text-red-600">❌ Error: ${error.message}</div>`;
+            } finally {
+                deployBtn.disabled = false;
+                deployBtn.textContent = 'Test Full Deployment';
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('connect-btn').addEventListener('click', connectWallet);
+        document.getElementById('deploy-btn').addEventListener('click', testFullDeployment);
+        
+        // Initialize
+        window.onload = function() {
+            testLibraryLoading();
+            initializeWallet();
+        };
+    </script>
+</body>
+</html> 

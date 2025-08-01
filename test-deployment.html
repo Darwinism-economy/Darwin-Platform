@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Darwin Deployment Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.7/lib/index.iife.min.js"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Darwin Deployment Test</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Library Status</h2>
+            <div id="library-status" class="text-sm space-y-2"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Wallet Connection</h2>
+            <button id="connect-btn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                Connect Phantom Wallet
+            </button>
+            <div id="wallet-info" class="mt-4 text-sm"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Deployment Test</h2>
+            <button id="deploy-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" disabled>
+                Test Deployment
+            </button>
+            <div id="deployment-status" class="mt-4 text-sm space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        let wallet = null;
+        let connection = null;
+        
+        // Test library loading
+        function testLibraries() {
+            const statusDiv = document.getElementById('library-status');
+            
+            const libraries = {
+                'solanaWeb3': typeof solanaWeb3,
+                'splToken': typeof splToken,
+                'spl': typeof spl,
+                'window.splToken': typeof window.splToken,
+                'window.spl': typeof window.spl
+            };
+            
+            let html = '';
+            for (const [name, type] of Object.entries(libraries)) {
+                const status = type !== 'undefined' ? '✅' : '❌';
+                html += `<div>${status} ${name}: ${type}</div>`;
+            }
+            
+            statusDiv.innerHTML = html;
+            
+            // Find the working SPL Token library
+            const tokenLib = splToken || spl || window.splToken || window.spl;
+            if (tokenLib) {
+                statusDiv.innerHTML += `<div class="mt-2 p-2 bg-green-100 rounded">✅ SPL Token library found: ${typeof tokenLib}</div>`;
+                return tokenLib;
+            } else {
+                statusDiv.innerHTML += `<div class="mt-2 p-2 bg-red-100 rounded">❌ No SPL Token library found</div>`;
+                return null;
+            }
+        }
+        
+        // Initialize wallet connection
+        async function initializeWallet() {
+            try {
+                connection = new solanaWeb3.Connection('https://api.testnet.solana.com', 'confirmed');
+                
+                if ('solana' in window) {
+                    const provider = window.solana;
+                    if (provider.isPhantom) {
+                        wallet = provider;
+                        console.log('Phantom wallet detected');
+                        
+                        wallet.on('connect', () => {
+                            updateWalletUI();
+                        });
+                        
+                        if (wallet.isConnected) {
+                            updateWalletUI();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing wallet:', error);
+            }
+        }
+        
+        function updateWalletUI() {
+            const connectBtn = document.getElementById('connect-btn');
+            const walletInfo = document.getElementById('wallet-info');
+            const deployBtn = document.getElementById('deploy-btn');
+            
+            if (wallet && wallet.isConnected) {
+                const address = wallet.publicKey.toString();
+                walletInfo.innerHTML = `
+                    <div class="p-2 bg-green-100 rounded">
+                        <strong>Connected:</strong> ${address.slice(0, 4)}...${address.slice(-4)}<br>
+                        <strong>Network:</strong> Solana Testnet
+                    </div>
+                `;
+                connectBtn.textContent = 'Wallet Connected';
+                connectBtn.disabled = true;
+                deployBtn.disabled = false;
+            } else {
+                walletInfo.textContent = 'Not connected';
+                connectBtn.textContent = 'Connect Phantom Wallet';
+                connectBtn.disabled = false;
+                deployBtn.disabled = true;
+            }
+        }
+        
+        async function connectWallet() {
+            try {
+                if (!wallet) {
+                    alert('Please install Phantom wallet first');
+                    window.open('https://phantom.app/', '_blank');
+                    return;
+                }
+                
+                await wallet.connect();
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet');
+            }
+        }
+        
+        async function testDeployment() {
+            const statusDiv = document.getElementById('deployment-status');
+            const deployBtn = document.getElementById('deploy-btn');
+            
+            try {
+                deployBtn.disabled = true;
+                deployBtn.textContent = 'Testing...';
+                statusDiv.innerHTML = '<div>🚀 Starting deployment test...</div>';
+                
+                // Check if wallet is connected
+                if (!wallet || !wallet.isConnected) {
+                    statusDiv.innerHTML += '<div class="text-red-600">❌ Wallet not connected</div>';
+                    return;
+                }
+                
+                // Check balance
+                const balance = await connection.getBalance(wallet.publicKey);
+                const balanceInSol = balance / 1000000000;
+                statusDiv.innerHTML += `<div>💰 Balance: ${balanceInSol.toFixed(4)} SOL</div>`;
+                
+                if (balanceInSol < 0.1) {
+                    statusDiv.innerHTML += '<div class="text-red-600">❌ Insufficient SOL (need at least 0.1)</div>';
+                    return;
+                }
+                
+                // Find SPL Token library
+                const tokenLib = testLibraries();
+                if (!tokenLib) {
+                    statusDiv.innerHTML += '<div class="text-red-600">❌ SPL Token library not available</div>';
+                    return;
+                }
+                
+                statusDiv.innerHTML += '<div>✅ SPL Token library found</div>';
+                statusDiv.innerHTML += '<div>🪙 Creating token mint...</div>';
+                
+                // Test token creation (this will actually create a token)
+                const tokenMint = await tokenLib.createMint(
+                    connection,
+                    wallet,
+                    wallet.publicKey,
+                    null,
+                    9
+                );
+                
+                statusDiv.innerHTML += `<div class="text-green-600">✅ Token mint created: ${tokenMint.toString().slice(0, 8)}...</div>`;
+                
+                // Test token account creation
+                statusDiv.innerHTML += '<div>🏦 Creating token account...</div>';
+                const tokenAccount = await tokenLib.createAccount(
+                    connection,
+                    wallet,
+                    tokenMint,
+                    wallet.publicKey
+                );
+                
+                statusDiv.innerHTML += `<div class="text-green-600">✅ Token account created: ${tokenAccount.toString().slice(0, 8)}...</div>`;
+                
+                // Test minting
+                statusDiv.innerHTML += '<div>🪙 Minting tokens...</div>';
+                await tokenLib.mintTo(
+                    connection,
+                    wallet,
+                    tokenMint,
+                    tokenAccount,
+                    wallet,
+                    1000000000000 // 1 billion tokens
+                );
+                
+                statusDiv.innerHTML += '<div class="text-green-600">✅ Tokens minted successfully!</div>';
+                statusDiv.innerHTML += '<div class="mt-4 p-3 bg-green-100 rounded"><strong>🎉 DEPLOYMENT TEST SUCCESSFUL!</strong></div>';
+                
+            } catch (error) {
+                console.error('Deployment test error:', error);
+                statusDiv.innerHTML += `<div class="text-red-600">❌ Error: ${error.message}</div>`;
+            } finally {
+                deployBtn.disabled = false;
+                deployBtn.textContent = 'Test Deployment';
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('connect-btn').addEventListener('click', connectWallet);
+        document.getElementById('deploy-btn').addEventListener('click', testDeployment);
+        
+        // Initialize
+        window.onload = function() {
+            testLibraries();
+            initializeWallet();
+        };
+    </script>
+</body>
+</html> 

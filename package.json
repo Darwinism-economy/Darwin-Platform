@@ -17,7 +17,7 @@
     "deploy:local": "ts-node scripts/deploy.ts --cluster localnet",
     "deploy:testnet": "ts-node scripts/deploy.ts --cluster testnet",
     "deploy:mainnet": "ts-node scripts/deploy.ts --cluster mainnet-beta",
-    "deploy:gh-pages": "npm run build && gh-pages -d dist"
+    "deploy:gh-pages": "npm run build && npx gh-pages -d dist"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.29.0",

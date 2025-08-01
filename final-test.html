@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final SPL Token Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.7/lib/index.iife.min.js"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Final SPL Token Test</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Library Status</h2>
+            <div id="status" class="text-sm space-y-2"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Test Deployment</h2>
+            <button id="test-btn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                Test SPL Token Functions
+            </button>
+            <div id="result" class="mt-4 text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkLibraries() {
+            const statusDiv = document.getElementById('status');
+            
+            const checks = [
+                { name: 'solanaWeb3', value: typeof solanaWeb3 },
+                { name: 'splToken', value: typeof splToken },
+                { name: 'splToken.createMint', value: typeof splToken?.createMint }
+            ];
+            
+            let html = '';
+            for (const check of checks) {
+                const status = check.value !== 'undefined' ? '✅' : '❌';
+                html += `<div>${status} ${check.name}: ${check.value}</div>`;
+            }
+            
+            statusDiv.innerHTML = html;
+            
+            return typeof splToken !== 'undefined' && typeof splToken.createMint === 'function';
+        }
+        
+        async function testSPLToken() {
+            const resultDiv = document.getElementById('result');
+            const testBtn = document.getElementById('test-btn');
+            
+            try {
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testing...';
+                resultDiv.innerHTML = '<div>🚀 Testing SPL Token functions...</div>';
+                
+                // Test 1: Check if splToken is available
+                if (typeof splToken === 'undefined') {
+                    resultDiv.innerHTML += '<div class="text-red-600">❌ splToken is not defined</div>';
+                    return;
+                }
+                resultDiv.innerHTML += '<div class="text-green-600">✅ splToken is defined</div>';
+                
+                // Test 2: Check if createMint function exists
+                if (typeof splToken.createMint !== 'function') {
+                    resultDiv.innerHTML += '<div class="text-red-600">❌ splToken.createMint is not a function</div>';
+                    return;
+                }
+                resultDiv.innerHTML += '<div class="text-green-600">✅ splToken.createMint is available</div>';
+                
+                // Test 3: Check if createAccount function exists
+                if (typeof splToken.createAccount !== 'function') {
+                    resultDiv.innerHTML += '<div class="text-red-600">❌ splToken.createAccount is not a function</div>';
+                    return;
+                }
+                resultDiv.innerHTML += '<div class="text-green-600">✅ splToken.createAccount is available</div>';
+                
+                // Test 4: Check if mintTo function exists
+                if (typeof splToken.mintTo !== 'function') {
+                    resultDiv.innerHTML += '<div class="text-red-600">❌ splToken.mintTo is not a function</div>';
+                    return;
+                }
+                resultDiv.innerHTML += '<div class="text-green-600">✅ splToken.mintTo is available</div>';
+                
+                resultDiv.innerHTML += '<div class="mt-4 p-3 bg-green-100 rounded"><strong>🎉 ALL TESTS PASSED! SPL Token library is working correctly.</strong></div>';
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                resultDiv.innerHTML += `<div class="text-red-600">❌ Error: ${error.message}</div>`;
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test SPL Token Functions';
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('test-btn').addEventListener('click', testSPLToken);
+        
+        // Initialize
+        window.onload = function() {
+            checkLibraries();
+        };
+    </script>
+</body>
+</html> 

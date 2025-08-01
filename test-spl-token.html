@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPL Token Test</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.9/lib/index.iife.min.js"></script>
+</head>
+<body>
+    <h1>SPL Token Library Test</h1>
+    <button onclick="testSPLToken()">Test SPL Token Library</button>
+    <div id="results"></div>
+
+    <script>
+        function testSPLToken() {
+            const results = document.getElementById('results');
+            
+            // Check what's available
+            console.log('Testing SPL Token library...');
+            console.log('splToken:', typeof splToken);
+            console.log('spl:', typeof spl);
+            console.log('SplToken:', typeof SplToken);
+            console.log('window.splToken:', typeof window.splToken);
+            console.log('window.spl:', typeof window.spl);
+            
+            // Try to find the library
+            const tokenLib = splToken || spl || SplToken || window.splToken || window.spl;
+            
+            if (tokenLib) {
+                results.innerHTML = `
+                    <h3>✅ SPL Token Library Found!</h3>
+                    <p>Library type: ${typeof tokenLib}</p>
+                    <p>Available methods: ${Object.keys(tokenLib).join(', ')}</p>
+                `;
+                console.log('Available methods:', Object.keys(tokenLib));
+            } else {
+                results.innerHTML = `
+                    <h3>❌ SPL Token Library Not Found</h3>
+                    <p>Please check the console for debugging info.</p>
+                `;
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = function() {
+            setTimeout(testSPLToken, 1000);
+        };
+    </script>
+</body>
+</html> 
