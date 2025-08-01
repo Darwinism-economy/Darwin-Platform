@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.9/lib/index.iife.min.js"></script>
     <style>
         .btn-primary {
     border-radius: 0.25rem;
@@ -1969,6 +1969,23 @@
             try {
                 showNotification('🚀 Starting smart contract deployment...', 'info');
                 
+                // Debug: Check what SPL Token libraries are available
+                console.log('Available SPL Token libraries:', {
+                    splToken: typeof splToken,
+                    spl: typeof spl,
+                    SplToken: typeof SplToken,
+                    windowSplToken: typeof window.splToken,
+                    windowSpl: typeof window.spl
+                });
+                
+                // Try different possible SPL Token library names
+                const tokenLib = splToken || spl || SplToken || window.splToken || window.spl;
+                
+                if (!tokenLib) {
+                    showNotification('❌ SPL Token library not loaded. Please refresh the page.', 'error');
+                    return;
+                }
+                
                 // Check wallet balance
                 const balance = await connection.getBalance(wallet.publicKey);
                 const balanceInSol = balance / 1000000000; // Convert lamports to SOL
@@ -1981,7 +1998,7 @@
                 showNotification(`✅ Sufficient SOL found! (${balanceInSol.toFixed(4)} SOL) Creating token mint...`, 'info');
                 
                 // Create token mint
-                const tokenMint = await splToken.createMint(
+                const tokenMint = await tokenLib.createMint(
                     connection,
                     wallet,
                     wallet.publicKey,
@@ -1992,7 +2009,7 @@
                 showNotification(`✅ Token mint created: ${tokenMint.toString().slice(0, 8)}...`, 'success');
                 
                 // Create token account
-                const tokenAccount = await splToken.createAccount(
+                const tokenAccount = await tokenLib.createAccount(
                     connection,
                     wallet,
                     tokenMint,
@@ -2002,7 +2019,7 @@
                 showNotification(`✅ Token account created: ${tokenAccount.toString().slice(0, 8)}...`, 'success');
                 
                 // Mint initial supply (1 billion tokens)
-                await splToken.mintTo(
+                await tokenLib.mintTo(
                     connection,
                     wallet,
                     tokenMint,
