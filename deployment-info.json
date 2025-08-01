@@ -1,0 +1,9 @@
+{
+  "network": "Solana Testnet",
+  "deployer": "8ExSFwgR4FnKFVwTdkpNijRz6rpur9rESw9rgNLaQWSR",
+  "tokenMint": "SIMULATED_TOKEN_MINT_ADDRESS",
+  "deployerTokenAccount": "SIMULATED_TOKEN_ACCOUNT_ADDRESS",
+  "connection": "https://api.testnet.solana.com",
+  "timestamp": "2025-08-01T03:43:53.602Z",
+  "status": "SIMULATED - Need real SOL for actual deployment"
+}

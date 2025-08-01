@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Darwin Platform - Smart Contract Deployment</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.min.js"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-3xl font-bold text-center mb-8 text-blue-600">🚀 Darwin Platform Deployment</h1>
+            
+            <div id="wallet-status" class="mb-6 p-4 bg-gray-100 rounded-lg">
+                <h2 class="text-lg font-semibold mb-2">Wallet Status</h2>
+                <div id="wallet-info">Not connected</div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-6 border rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Step 1: Connect Wallet</h3>
+                    <button id="connect-btn" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700">
+                        Connect Phantom Wallet
+                    </button>
+                </div>
+                
+                <div class="p-6 border rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Step 2: Deploy Contracts</h3>
+                    <button id="deploy-btn" class="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700" disabled>
+                        Deploy Smart Contracts
+                    </button>
+                </div>
+            </div>
+            
+            <div id="deployment-status" class="mt-8 p-6 bg-gray-100 rounded-lg hidden">
+                <h3 class="text-xl font-semibold mb-4">Deployment Status</h3>
+                <div id="status-messages"></div>
+            </div>
+            
+            <div id="deployment-results" class="mt-8 p-6 bg-green-50 rounded-lg hidden">
+                <h3 class="text-xl font-semibold mb-4 text-green-800">✅ Deployment Complete!</h3>
+                <div id="results-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let wallet = null;
+        let connection = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeWallet();
+        });
+        
+        async function initializeWallet() {
+            try {
+                connection = new solanaWeb3.Connection('https://api.testnet.solana.com', 'confirmed');
+                
+                if ('solana' in window) {
+                    const provider = window.solana;
+                    if (provider.isPhantom) {
+                        wallet = provider;
+                        console.log('Phantom wallet detected');
+                        
+                        wallet.on('connect', updateWalletUI);
+                        wallet.on('disconnect', updateWalletUI);
+                        
+                        if (wallet.isConnected) {
+                            updateWalletUI();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing wallet:', error);
+            }
+        }
+        
+        async function connectWallet() {
+            try {
+                if (!wallet) {
+                    alert('Please install Phantom wallet first');
+                    window.open('https://phantom.app/', '_blank');
+                    return;
+                }
+                
+                await wallet.connect();
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet');
+            }
+        }
+        
+        function updateWalletUI() {
+            const connectBtn = document.getElementById('connect-btn');
+            const deployBtn = document.getElementById('deploy-btn');
+            const walletInfo = document.getElementById('wallet-info');
+            
+            if (wallet && wallet.isConnected) {
+                const address = wallet.publicKey.toString();
+                walletInfo.innerHTML = `
+                    <p><strong>Connected:</strong> ${address.slice(0, 4)}...${address.slice(-4)}</p>
+                    <p><strong>Network:</strong> Solana Testnet</p>
+                `;
+                connectBtn.textContent = 'Wallet Connected';
+                connectBtn.disabled = true;
+                deployBtn.disabled = false;
+            } else {
+                walletInfo.textContent = 'Not connected';
+                connectBtn.textContent = 'Connect Phantom Wallet';
+                connectBtn.disabled = false;
+                deployBtn.disabled = true;
+            }
+        }
+        
+        async function deployContracts() {
+            try {
+                if (!wallet || !wallet.isConnected) {
+                    alert('Please connect your wallet first');
+                    return;
+                }
+                
+                const deployBtn = document.getElementById('deploy-btn');
+                const statusDiv = document.getElementById('deployment-status');
+                const messagesDiv = document.getElementById('status-messages');
+                
+                deployBtn.disabled = true;
+                deployBtn.textContent = 'Deploying...';
+                statusDiv.classList.remove('hidden');
+                messagesDiv.innerHTML = '<p>🚀 Starting deployment...</p>';
+                
+                // Check balance
+                const balance = await connection.getBalance(wallet.publicKey);
+                addMessage(`💰 Wallet balance: ${(balance / 1000000000).toFixed(4)} SOL`);
+                
+                if (balance < 0.1 * 1000000000) {
+                    addMessage('❌ Insufficient SOL for deployment');
+                    return;
+                }
+                
+                addMessage('✅ Sufficient SOL found!');
+                
+                // Create token mint
+                addMessage('🪙 Creating token mint...');
+                const tokenMint = await splToken.createMint(
+                    connection,
+                    wallet,
+                    wallet.publicKey,
+                    null,
+                    9
+                );
+                addMessage(`✅ Token mint created: ${tokenMint.toString()}`);
+                
+                // Create token account
+                addMessage('🏦 Creating token account...');
+                const tokenAccount = await splToken.createAccount(
+                    connection,
+                    wallet,
+                    tokenMint,
+                    wallet.publicKey
+                );
+                addMessage(`✅ Token account created: ${tokenAccount.toString()}`);
+                
+                // Mint initial supply
+                addMessage('🪙 Minting initial supply...');
+                await splToken.mintTo(
+                    connection,
+                    wallet,
+                    tokenMint,
+                    tokenAccount,
+                    wallet,
+                    1000000000000 // 1 billion tokens
+                );
+                addMessage('✅ Initial supply minted');
+                
+                // Show results
+                showResults(tokenMint.toString(), tokenAccount.toString());
+                
+            } catch (error) {
+                console.error('Deployment error:', error);
+                addMessage(`❌ Deployment failed: ${error.message}`);
+            }
+        }
+        
+        function addMessage(message) {
+            const messagesDiv = document.getElementById('status-messages');
+            const p = document.createElement('p');
+            p.textContent = message;
+            messagesDiv.appendChild(p);
+        }
+        
+        function showResults(tokenMint, tokenAccount) {
+            const resultsDiv = document.getElementById('deployment-results');
+            const contentDiv = document.getElementById('results-content');
+            
+            contentDiv.innerHTML = `
+                <div class="space-y-4">
+                    <p><strong>Token Mint:</strong> ${tokenMint}</p>
+                    <p><strong>Token Account:</strong> ${tokenAccount}</p>
+                    <p><strong>Network:</strong> Solana Testnet</p>
+                    <p><strong>Status:</strong> ✅ Deployed Successfully</p>
+                </div>
+                <div class="mt-6">
+                    <a href="https://darwinism-economy.github.io/Darwin-Platform/" 
+                       class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+                        🚀 Go to Darwin Platform
+                    </a>
+                </div>
+            `;
+            
+            resultsDiv.classList.remove('hidden');
+        }
+        
+        // Event listeners
+        document.getElementById('connect-btn').addEventListener('click', connectWallet);
+        document.getElementById('deploy-btn').addEventListener('click', deployContracts);
+    </script>
+</body>
+</html> 

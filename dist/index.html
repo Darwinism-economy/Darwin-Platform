@@ -3,236 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Darwin Launchpad - Dashboard</title>
+    <title>Darwin Platform - Token Launchpad</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
     <style>
         .btn-primary {
-            transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-            border-radius: 0.5rem;
-            background-image: linear-gradient(to right, var(--tw-gradient-stops));
-            --tw-gradient-from: #2563eb var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(37 99 235 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #1d4ed8 var(--tw-gradient-to-position);
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
-            font-weight: 500;
-            --tw-text-opacity: 1;
-            color: rgb(255 255 255 / var(--tw-text-opacity, 1));
-            --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-            transition-property: all;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 200ms;
+    border-radius: 0.25rem;
+    --tw-bg-opacity: 1;
+    background-color: rgb(37 99 235 / var(--tw-bg-opacity, 1));
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-weight: 700;
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255 / var(--tw-text-opacity, 1));
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms
 }
 .btn-primary:hover {
-            --tw-translate-y: -0.125rem;
-            transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-            --tw-gradient-from: #1d4ed8 var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(29 78 216 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #1e40af var(--tw-gradient-to-position);
-            --tw-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+    --tw-bg-opacity: 1;
+    background-color: rgb(29 78 216 / var(--tw-bg-opacity, 1))
+}
+        .btn-secondary {
+    border-radius: 0.25rem;
+    --tw-bg-opacity: 1;
+    background-color: rgb(75 85 99 / var(--tw-bg-opacity, 1));
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-weight: 700;
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255 / var(--tw-text-opacity, 1));
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms
+}
+        .btn-secondary:hover {
+    --tw-bg-opacity: 1;
+    background-color: rgb(55 65 81 / var(--tw-bg-opacity, 1))
 }
         .card {
-            border-radius: 1rem;
-            border-width: 1px;
-            --tw-border-opacity: 1;
-            border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
-            --tw-bg-opacity: 1;
-            background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
-            padding: 1.5rem;
-            --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-            --tw-backdrop-blur: blur(4px);
-            -webkit-backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
-            backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+    border-radius: 0.5rem;
+    border-width: 1px;
+    --tw-border-opacity: 1;
+    border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
+    --tw-bg-opacity: 1;
+    background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
+    padding: 1.5rem;
+    --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
 }
-        .nav-tab {
-            display: flex;
-            cursor: pointer;
-            align-items: center;
+        .notification {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 50;
+    max-width: 24rem;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)
 }
-        .nav-tab > :not([hidden]) ~ :not([hidden]) {
-            --tw-space-x-reverse: 0;
-            margin-right: calc(0.75rem * var(--tw-space-x-reverse));
-            margin-left: calc(0.75rem * calc(1 - var(--tw-space-x-reverse)));
+        .notification.success {
+    --tw-bg-opacity: 1;
+    background-color: rgb(34 197 94 / var(--tw-bg-opacity, 1));
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255 / var(--tw-text-opacity, 1))
 }
-        .nav-tab {
-            border-radius: 0.75rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
-            padding-top: 0.75rem;
-            padding-bottom: 0.75rem;
-            --tw-text-opacity: 1;
-            color: rgb(55 65 81 / var(--tw-text-opacity, 1));
-            transition-property: all;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 200ms;
+        .notification.error {
+    --tw-bg-opacity: 1;
+    background-color: rgb(239 68 68 / var(--tw-bg-opacity, 1));
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255 / var(--tw-text-opacity, 1))
 }
-        .nav-tab:hover {
-            background-image: linear-gradient(to right, var(--tw-gradient-stops));
-            --tw-gradient-from: #eff6ff var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #eef2ff var(--tw-gradient-to-position);
-            --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-        .nav-tab.active {
-            border-right-width: 2px;
-            --tw-border-opacity: 1;
-            border-color: rgb(37 99 235 / var(--tw-border-opacity, 1));
-            background-image: linear-gradient(to right, var(--tw-gradient-stops));
-            --tw-gradient-from: #eff6ff var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(239 246 255 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #eef2ff var(--tw-gradient-to-position);
-            --tw-text-opacity: 1;
-            color: rgb(29 78 216 / var(--tw-text-opacity, 1));
-            --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-        .content-section {
-            display: none;
-        }
-        .content-section.active {
-            display: block;
-        }
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.1);
-            -webkit-backdrop-filter: blur(10px);
-                    backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        .token-card {
-            transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-            border-radius: 1rem;
-            border-width: 1px;
-            --tw-border-opacity: 1;
-            border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
-            background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
-            --tw-gradient-from: #fff var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #f9fafb var(--tw-gradient-to-position);
-            padding: 1.5rem;
-            --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-            transition-property: all;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 300ms;
-}
-        .token-card:hover {
-            --tw-translate-y: -0.25rem;
-            transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-            --tw-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-        .progress-bar {
-            height: 0.75rem;
-            width: 100%;
-            overflow: hidden;
-            border-radius: 9999px;
-            --tw-bg-opacity: 1;
-            background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
-}
-        .progress-fill {
-            height: 0.75rem;
-            border-radius: 9999px;
-            transition-property: all;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 500ms;
-            transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
-}
-        .stat-card {
-            transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-            border-radius: 1rem;
-            border-width: 1px;
-            --tw-border-opacity: 1;
-            border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
-            background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
-            --tw-gradient-from: #fff var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #f9fafb var(--tw-gradient-to-position);
-            padding: 1.5rem;
-            text-align: center;
-            --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-            transition-property: all;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 300ms;
-}
-        .stat-card:hover {
-            --tw-translate-y: -0.25rem;
-            transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
-            --tw-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 20px 25px -5px var(--tw-shadow-color), 0 8px 10px -6px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-        .form-input {
-            width: 100%;
-            border-radius: 0.75rem;
-            border-width: 1px;
-            --tw-border-opacity: 1;
-            border-color: rgb(229 231 235 / var(--tw-border-opacity, 1));
-            --tw-bg-opacity: 1;
-            background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
-            padding-left: 1rem;
-            padding-right: 1rem;
-            padding-top: 0.75rem;
-            padding-bottom: 0.75rem;
-            --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-            transition-property: all;
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 200ms;
-}
-        .form-input:hover {
-            --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
-}
-        .form-input:focus {
-            border-color: transparent;
-            outline: 2px solid transparent;
-            outline-offset: 2px;
-            --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
-            --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
-            box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
-            --tw-ring-opacity: 1;
-            --tw-ring-color: rgb(59 130 246 / var(--tw-ring-opacity, 1));
-}
-        .section-header {
-            border-radius: 1rem;
-            border-width: 1px;
-            --tw-border-opacity: 1;
-            border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
-            background-image: linear-gradient(to right, var(--tw-gradient-stops));
-            --tw-gradient-from: #f9fafb var(--tw-gradient-from-position);
-            --tw-gradient-to: rgb(249 250 251 / 0) var(--tw-gradient-to-position);
-            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
-            --tw-gradient-to: #eff6ff var(--tw-gradient-to-position);
-            padding: 1.5rem;
-            --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
-            box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+        .notification.info {
+    --tw-bg-opacity: 1;
+    background-color: rgb(59 130 246 / var(--tw-bg-opacity, 1));
+    --tw-text-opacity: 1;
+    color: rgb(255 255 255 / var(--tw-text-opacity, 1))
 }
     </style>
 </head>
@@ -251,9 +106,17 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <button onclick="connectWallet()" class="btn-primary text-lg px-6 py-3">
-                        <span class="mr-2">🔗</span>Connect Wallet
-                    </button>
+                    <div id="wallet-connection">
+                        <button id="connect-wallet-btn" onclick="connectWallet()" class="btn-primary text-lg px-6 py-3">
+                            <span class="mr-2">🔗</span>Connect Wallet
+                        </button>
+                        <div id="wallet-info" class="hidden">
+                            <div class="flex items-center space-x-2">
+                                <span id="wallet-address" class="text-sm text-gray-600"></span>
+                                <button id="disconnect-wallet-btn" onclick="disconnectWallet()" class="text-sm text-red-600 hover:text-red-800">Disconnect</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1933,8 +1796,8 @@
             console.log('DOMContentLoaded event fired');
             setupTaxCalculationListeners();
             
-                            // Calculate and display Bid To Win Ratios
-                updateBidToWinRatios();
+            // Calculate and display Bid To Win Ratios
+            updateBidToWinRatios();
             
             // Initial validation check to ensure button state is correct
             setTimeout(() => {
@@ -1942,7 +1805,151 @@
                 updateTaxBreakdown();
                 updateTeamAllocation();
             }, 100);
+            
+            // Initialize wallet connection
+            initializeWallet();
         });
+
+        // Real Phantom Wallet Integration
+        let wallet = null;
+        let connection = null;
+
+        async function initializeWallet() {
+            try {
+                // Initialize Solana connection to testnet
+                connection = new solanaWeb3.Connection(
+                    'https://api.testnet.solana.com',
+                    'confirmed'
+                );
+                
+                // Check if Phantom is installed
+                if ('solana' in window) {
+                    const provider = window.solana;
+                    if (provider.isPhantom) {
+                        wallet = provider;
+                        console.log('Phantom wallet detected');
+                        
+                        // Listen for wallet connection changes
+                        wallet.on('connect', () => {
+                            updateWalletUI();
+                            showNotification('✅ Wallet connected successfully!', 'success');
+                        });
+                        
+                        wallet.on('disconnect', () => {
+                            updateWalletUI();
+                            showNotification('🔌 Wallet disconnected', 'info');
+                        });
+                        
+                        // Check if already connected
+                        if (wallet.isConnected) {
+                            updateWalletUI();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing wallet:', error);
+                showNotification('❌ Error initializing wallet', 'error');
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                if (!wallet) {
+                    showNotification('❌ Please install Phantom wallet first', 'error');
+                    window.open('https://phantom.app/', '_blank');
+                    return;
+                }
+                
+                // Request connection
+                await wallet.connect();
+                
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                showNotification('❌ Failed to connect wallet', 'error');
+            }
+        }
+
+        async function disconnectWallet() {
+            try {
+                if (wallet) {
+                    await wallet.disconnect();
+                }
+            } catch (error) {
+                console.error('Error disconnecting wallet:', error);
+            }
+        }
+
+        function updateWalletUI() {
+            const connectBtn = document.getElementById('connect-wallet-btn');
+            const walletInfo = document.getElementById('wallet-info');
+            const walletAddress = document.getElementById('wallet-address');
+            
+            if (wallet && wallet.isConnected) {
+                // Show wallet info
+                connectBtn.classList.add('hidden');
+                walletInfo.classList.remove('hidden');
+                
+                // Display shortened wallet address
+                const address = wallet.publicKey.toString();
+                walletAddress.textContent = `${address.slice(0, 4)}...${address.slice(-4)}`;
+                
+                // Update network info
+                showNotification('🌐 Connected to Solana Testnet', 'info');
+            } else {
+                // Show connect button
+                connectBtn.classList.remove('hidden');
+                walletInfo.classList.add('hidden');
+            }
+        }
+
+        // Enhanced contribute function with real wallet integration
+        async function contribute(tokenId, currentRaised) {
+            if (!wallet || !wallet.isConnected) {
+                showNotification('❌ Please connect your wallet first', 'error');
+                return;
+            }
+            
+            const solAmount = parseFloat(prompt(`Enter SOL amount to contribute to ${tokenId.toUpperCase()}:`));
+            if (isNaN(solAmount) || solAmount <= 0) {
+                showNotification('❌ Invalid SOL amount', 'error');
+                return;
+            }
+            
+            try {
+                // Show loading notification
+                showNotification('⏳ Processing transaction...', 'info');
+                
+                // Here you would integrate with your deployed smart contract
+                // For now, we'll simulate the transaction
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const newRaised = currentRaised + solAmount;
+                const tokensReceived = (solAmount / newRaised) * 1000000; // Pro-rata calculation
+                
+                // Update the token's raised amount
+                const tokenElement = document.querySelector(`[data-token-id="${tokenId}"]`);
+                if (tokenElement) {
+                    const raisedElement = tokenElement.querySelector('.raised-amount');
+                    if (raisedElement) {
+                        raisedElement.textContent = `${newRaised.toFixed(2)} SOL`;
+                    }
+                    
+                    const progressElement = tokenElement.querySelector('.progress-fill');
+                    if (progressElement) {
+                        const progress = Math.min((newRaised / 100) * 100, 100);
+                        progressElement.style.width = `${progress}%`;
+                    }
+                }
+                
+                // Show success notification with clear pro-rata explanation
+                const sharePercentage = ((solAmount / newRaised) * 100).toFixed(2);
+                showNotification(`✅ Successfully contributed ${solAmount} SOL to ${tokenId.toUpperCase()}! Your share: ${sharePercentage}% of public sale tokens (pro-rata distribution).`, 'success');
+                
+            } catch (error) {
+                console.error('Transaction error:', error);
+                showNotification('❌ Transaction failed. Please try again.', 'error');
+            }
+        }
     </script>
 </body>
 </html> 
