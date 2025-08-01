@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.7/lib/index.iife.min.js"></script>
     <style>
         .btn-primary {
     border-radius: 0.25rem;
@@ -1986,26 +1986,32 @@
                 let tokenLib = null;
                 
                 // Check in order of likelihood
-                if (typeof spl !== 'undefined') {
-                    tokenLib = spl;
-                    console.log('Found SPL Token library as: spl');
+                if (typeof window.splToken !== 'undefined') {
+                    tokenLib = window.splToken;
+                    console.log('Found SPL Token library as: window.splToken');
                 } else if (typeof splToken !== 'undefined') {
                     tokenLib = splToken;
                     console.log('Found SPL Token library as: splToken');
-                } else if (typeof SplToken !== 'undefined') {
-                    tokenLib = SplToken;
-                    console.log('Found SPL Token library as: SplToken');
                 } else if (typeof window.spl !== 'undefined') {
                     tokenLib = window.spl;
                     console.log('Found SPL Token library as: window.spl');
-                } else if (typeof window.splToken !== 'undefined') {
-                    tokenLib = window.splToken;
-                    console.log('Found SPL Token library as: window.splToken');
+                } else if (typeof spl !== 'undefined') {
+                    tokenLib = spl;
+                    console.log('Found SPL Token library as: spl');
+                } else if (typeof SplToken !== 'undefined') {
+                    tokenLib = SplToken;
+                    console.log('Found SPL Token library as: SplToken');
                 }
                 
                 if (!tokenLib) {
-                    showNotification('❌ SPL Token library not loaded. Please refresh the page and try again.', 'error');
+                    showNotification('❌ SPL Token library not loaded. Trying alternative approach...', 'info');
                     console.error('No SPL Token library found. Available globals:', Object.keys(window).filter(key => key.toLowerCase().includes('spl')));
+                    
+                    // Fallback: Show instructions for manual deployment
+                    showNotification('📋 Manual Deployment Instructions: Use Phantom wallet to create token manually', 'info');
+                    setTimeout(() => {
+                        showNotification('🔗 Visit: https://spl-token-ui.com/ to create tokens manually', 'info');
+                    }, 2000);
                     return;
                 }
                 
