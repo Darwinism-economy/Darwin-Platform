@@ -1,0 +1,63 @@
+{
+  "name": "darwin-launchpad-demo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Darwin Launchpad - Non-custodial, trustless, globally scalable token launchpad on Solana",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "jest",
+    "anchor:build": "anchor build",
+    "anchor:test": "anchor test",
+    "anchor:deploy:local": "anchor deploy --provider.cluster localnet",
+    "anchor:deploy:testnet": "anchor deploy --provider.cluster testnet",
+    "anchor:deploy:mainnet": "anchor deploy --provider.cluster mainnet-beta",
+    "deploy:local": "ts-node scripts/deploy.ts --cluster localnet",
+    "deploy:testnet": "ts-node scripts/deploy.ts --cluster testnet",
+    "deploy:mainnet": "ts-node scripts/deploy.ts --cluster mainnet-beta",
+    "deploy:gh-pages": "npm run build && gh-pages -d dist"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/spl-token": "^0.3.9",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.34",
+    "@solana/wallet-adapter-wallets": "^0.19.23",
+    "@solana/web3.js": "^1.87.6",
+    "axios": "^1.6.2",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.1"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.1",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "chai": "^4.3.7",
+    "gh-pages": "^6.3.0",
+    "mocha": "^10.2.0",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
+  },
+  "keywords": [
+    "solana",
+    "defi",
+    "launchpad",
+    "token",
+    "fundraising",
+    "auction",
+    "anchor"
+  ],
+  "author": "Darwin Platform",
+  "license": "MIT"
+}
