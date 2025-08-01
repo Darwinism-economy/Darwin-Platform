@@ -88,6 +88,74 @@
             const signature = await wallet.sendTransaction(transaction, connection);
             await connection.confirmTransaction(signature);
         }
+
+        // Add missing SPL Token instruction functions
+        function createInitializeMintInstruction(programId, mint, decimals, mintAuthority, freezeAuthority) {
+            const keys = [
+                { pubkey: mint, isSigner: false, isWritable: true },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
+            ];
+            
+            const data = Buffer.alloc(67);
+            data.writeUInt8(0, 0); // InitializeMint instruction
+            data.writeUInt8(decimals, 1);
+            data.write(mintAuthority.toBytes(), 2);
+            data.write(freezeAuthority ? freezeAuthority.toBytes() : Buffer.alloc(32), 34);
+            
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId,
+                data
+            });
+        }
+
+        function createInitializeAccountInstruction(programId, account, mint, owner) {
+            const keys = [
+                { pubkey: account, isSigner: false, isWritable: true },
+                { pubkey: mint, isSigner: false, isWritable: false },
+                { pubkey: owner, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
+            ];
+            
+            const data = Buffer.alloc(1);
+            data.writeUInt8(1, 0); // InitializeAccount instruction
+            
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId,
+                data
+            });
+        }
+
+        function createMintToInstruction(programId, mint, destination, authority, signers, amount) {
+            const keys = [
+                { pubkey: mint, isSigner: false, isWritable: true },
+                { pubkey: destination, isSigner: false, isWritable: true }
+            ];
+            
+            if (authority) {
+                keys.push({ pubkey: authority, isSigner: true, isWritable: false });
+            }
+            
+            const data = Buffer.alloc(9);
+            data.writeUInt8(7, 0); // MintTo instruction
+            data.writeBigUInt64LE(BigInt(amount), 1);
+            
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId,
+                data
+            });
+        }
+
+        // Add Token namespace to solanaWeb3
+        solanaWeb3.Token = {
+            createInitializeMintInstruction,
+            createInitializeAccountInstruction,
+            createMintToInstruction
+        };
     </script>
     <style>
         .btn-primary {
