@@ -94,7 +94,7 @@
             const keys = [
                 { pubkey: mint, isSigner: false, isWritable: true },
                 { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-                { pubkey: solanaWeb3.SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
+                { pubkey: new solanaWeb3.PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false }
             ];
             
             const data = Buffer.alloc(67);
@@ -116,7 +116,7 @@
                 { pubkey: mint, isSigner: false, isWritable: false },
                 { pubkey: owner, isSigner: false, isWritable: false },
                 { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-                { pubkey: solanaWeb3.SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
+                { pubkey: new solanaWeb3.PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false }
             ];
             
             const data = Buffer.alloc(1);
@@ -1228,9 +1228,11 @@
                         
 
                         
-                        // Show success notification with clear pro-rata explanation
+                        // Show success notification with clear pro-rata explanation and token info
                         const sharePercentage = ((solAmount / newRaised) * 100).toFixed(2);
-                        showNotification(`✅ Successfully contributed ${solAmount} SOL to ${tokenId.toUpperCase()}! Your share: ${sharePercentage}% of public sale tokens (pro-rata distribution).`, 'success');
+                        const tokenInfo = window.deployedTokens && window.deployedTokens[tokenId] ? 
+                            `\n\nToken Mint: ${window.deployedTokens[tokenId].mintAddress}\nImport this address in Phantom to see your tokens!` : '';
+                        showNotification(`✅ Successfully contributed ${solAmount} SOL to ${tokenId.toUpperCase()}! Your share: ${sharePercentage}% of public sale tokens (pro-rata distribution).${tokenInfo}`, 'success');
                     }
                 } else {
                     showNotification(`❌ Could not find token ${tokenId.toUpperCase()}`, 'error');
@@ -1255,6 +1257,9 @@
         let timeMultiplier = 1;
         let activeTokens = [];
         let timeInterval;
+        
+        // Store deployed token information
+        window.deployedTokens = {};
         
         
 
@@ -2048,6 +2053,62 @@
             }
         }
 
+        // Function to add token info to the page
+        function addTokenInfoToPage(mintAddress, accountAddress) {
+            // Remove existing token info section if it exists
+            const existingSection = document.getElementById('token-info-section');
+            if (existingSection) {
+                existingSection.remove();
+            }
+            
+            // Create new token info section
+            const tokenInfoSection = document.createElement('div');
+            tokenInfoSection.id = 'token-info-section';
+            tokenInfoSection.className = 'bg-green-50 border border-green-200 rounded-lg p-6 mb-6';
+            tokenInfoSection.innerHTML = `
+                <h3 class="text-lg font-semibold text-green-800 mb-4">🎉 Token Deployed Successfully!</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-green-700 mb-1">Token Mint Address (Copy this to import in Phantom):</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" value="${mintAddress}" readonly class="flex-1 px-3 py-2 border border-green-300 rounded bg-white text-sm font-mono" id="mint-address-input">
+                            <button onclick="copyToClipboard('${mintAddress}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm">
+                                📋 Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-green-700 mb-1">Token Account Address:</label>
+                        <input type="text" value="${accountAddress}" readonly class="w-full px-3 py-2 border border-green-300 rounded bg-white text-sm font-mono">
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded p-3">
+                        <p class="text-sm text-blue-800">
+                            <strong>How to import in Phantom:</strong><br>
+                            1. Open Phantom wallet<br>
+                            2. Click "+" → "Import Token"<br>
+                            3. Paste the mint address above<br>
+                            4. Click "Import"
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // Insert at the top of the main content
+            const mainContent = document.querySelector('.container');
+            if (mainContent) {
+                mainContent.insertBefore(tokenInfoSection, mainContent.firstChild);
+            }
+        }
+        
+        // Function to copy text to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('📋 Mint address copied to clipboard!', 'success');
+            }).catch(() => {
+                showNotification('❌ Failed to copy. Please copy manually.', 'error');
+            });
+        }
+
         // Deploy smart contracts function
         async function deploySmartContracts() {
             if (!wallet || !wallet.isConnected) {
@@ -2120,9 +2181,19 @@
                 
                 localStorage.setItem('darwinDeployment', JSON.stringify(deploymentInfo));
                 
-                // Show deployment summary
+                // Store token info for contribution notifications
+                const tokenId = 'darwin'; // Default token ID
+                window.deployedTokens[tokenId] = {
+                    mintAddress: tokenMint.toString(),
+                    accountAddress: tokenAccount.toString()
+                };
+                
+                // Show deployment summary with full addresses
                 setTimeout(() => {
-                    showNotification(`📋 Deployment Summary: Mint: ${tokenMint.toString().slice(0, 8)}..., Account: ${tokenAccount.toString().slice(0, 8)}...`, 'info');
+                    showNotification(`📋 Deployment Summary:\n\nToken Mint Address: ${tokenMint.toString()}\nToken Account: ${tokenAccount.toString()}\n\nCopy the mint address and import it in Phantom!`, 'info');
+                    
+                    // Add token info to the page
+                    addTokenInfoToPage(tokenMint.toString(), tokenAccount.toString());
                 }, 2000);
                 
             } catch (error) {
