@@ -3,25 +3,25 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-darwin_token = "Token111111111111111111111111111111111111111"
-darwin_treasury = "Treasury111111111111111111111111111111111111"
-darwin_distributor = "Distributor111111111111111111111111111111111"
+darwin_token = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+darwin_treasury = "Treasury111111111111111111111111111111111111111"
+darwin_distributor = "Distributor111111111111111111111111111111111111111"
 
 [programs.testnet]
-darwin_token = "Token111111111111111111111111111111111111111"
-darwin_treasury = "Treasury111111111111111111111111111111111111"
-darwin_distributor = "Distributor111111111111111111111111111111111"
+darwin_token = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+darwin_treasury = "Treasury111111111111111111111111111111111111111"
+darwin_distributor = "Distributor111111111111111111111111111111111111111"
 
-[programs.mainnet-beta]
-darwin_token = "Token111111111111111111111111111111111111111"
-darwin_treasury = "Treasury111111111111111111111111111111111111"
-darwin_distributor = "Distributor111111111111111111111111111111111"
+[programs.mainnet]
+darwin_token = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+darwin_treasury = "Treasury111111111111111111111111111111111111111"
+darwin_distributor = "Distributor111111111111111111111111111111111111111"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "testnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

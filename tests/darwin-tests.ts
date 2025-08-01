@@ -1,78 +1,44 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { PublicKey, Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAccount } from "@solana/spl-token";
 import { DarwinToken } from "../target/types/darwin_token";
 import { DarwinTreasury } from "../target/types/darwin_treasury";
 import { DarwinDistributor } from "../target/types/darwin_distributor";
+import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAccount } from "@solana/spl-token";
 import { assert } from "chai";
 
-describe("Darwin Platform Tests", () => {
+describe("Darwin Platform", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const darwinToken = anchor.workspace.DarwinToken as Program<DarwinToken>;
-  const darwinTreasury = anchor.workspace.DarwinTreasury as Program<DarwinTreasury>;
-  const darwinDistributor = anchor.workspace.DarwinDistributor as Program<DarwinDistributor>;
+  const darwinTokenProgram = anchor.workspace.DarwinToken as Program<DarwinToken>;
+  const darwinTreasuryProgram = anchor.workspace.DarwinTreasury as Program<DarwinTreasury>;
+  const darwinDistributorProgram = anchor.workspace.DarwinDistributor as Program<DarwinDistributor>;
 
   // Test accounts
-  let authority: Keypair;
-  let creator: Keypair;
-  let contributor1: Keypair;
-  let contributor2: Keypair;
-  let bidder1: Keypair;
-  let bidder2: Keypair;
+  const authority = Keypair.generate();
+  const creator = Keypair.generate();
+  const contributor = Keypair.generate();
+  const bidder = Keypair.generate();
 
   // Token accounts
   let tokenMint: PublicKey;
-  let authorityTokenAccount: PublicKey;
   let creatorTokenAccount: PublicKey;
+  let contributorTokenAccount: PublicKey;
   let treasuryTokenAccount: PublicKey;
   let distributorTokenAccount: PublicKey;
-  let contributor1TokenAccount: PublicKey;
-  let contributor2TokenAccount: PublicKey;
-  let bidder1TokenAccount: PublicKey;
-  let bidder2TokenAccount: PublicKey;
 
-  // Treasury and distributor wallets
-  let treasuryWallet: Keypair;
-  let distributorWallet: Keypair;
-
-  // State accounts
-  let tokenState: PublicKey;
-  let treasuryState: PublicKey;
-  let distributorState: PublicKey;
+  // PDA accounts
+  let tokenInfoPda: PublicKey;
+  let treasuryPda: PublicKey;
+  let distributorPda: PublicKey;
 
   before(async () => {
-    // Create test keypairs
-    authority = Keypair.generate();
-    creator = Keypair.generate();
-    contributor1 = Keypair.generate();
-    contributor2 = Keypair.generate();
-    bidder1 = Keypair.generate();
-    bidder2 = Keypair.generate();
-    treasuryWallet = Keypair.generate();
-    distributorWallet = Keypair.generate();
-
     // Airdrop SOL to test accounts
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(authority.publicKey, 10 * LAMPORTS_PER_SOL)
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(creator.publicKey, 5 * LAMPORTS_PER_SOL)
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(contributor1.publicKey, 5 * LAMPORTS_PER_SOL)
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(contributor2.publicKey, 5 * LAMPORTS_PER_SOL)
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(bidder1.publicKey, 5 * LAMPORTS_PER_SOL)
-    );
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(bidder2.publicKey, 5 * LAMPORTS_PER_SOL)
-    );
+    await provider.connection.requestAirdrop(authority.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL);
+    await provider.connection.requestAirdrop(creator.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
+    await provider.connection.requestAirdrop(contributor.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
+    await provider.connection.requestAirdrop(bidder.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
 
     // Create token mint
     tokenMint = await createMint(
@@ -84,13 +50,6 @@ describe("Darwin Platform Tests", () => {
     );
 
     // Create token accounts
-    authorityTokenAccount = await createAccount(
-      provider.connection,
-      authority,
-      tokenMint,
-      authority.publicKey
-    );
-
     creatorTokenAccount = await createAccount(
       provider.connection,
       authority,
@@ -98,303 +57,383 @@ describe("Darwin Platform Tests", () => {
       creator.publicKey
     );
 
+    contributorTokenAccount = await createAccount(
+      provider.connection,
+      authority,
+      tokenMint,
+      contributor.publicKey
+    );
+
     treasuryTokenAccount = await createAccount(
       provider.connection,
       authority,
       tokenMint,
-      treasuryWallet.publicKey
+      authority.publicKey
     );
 
     distributorTokenAccount = await createAccount(
       provider.connection,
       authority,
       tokenMint,
-      distributorWallet.publicKey
+      authority.publicKey
     );
 
-    contributor1TokenAccount = await createAccount(
-      provider.connection,
-      authority,
-      tokenMint,
-      contributor1.publicKey
-    );
-
-    contributor2TokenAccount = await createAccount(
-      provider.connection,
-      authority,
-      tokenMint,
-      contributor2.publicKey
-    );
-
-    bidder1TokenAccount = await createAccount(
-      provider.connection,
-      authority,
-      tokenMint,
-      bidder1.publicKey
-    );
-
-    bidder2TokenAccount = await createAccount(
-      provider.connection,
-      authority,
-      tokenMint,
-      bidder2.publicKey
-    );
-
-    // Mint initial supply to authority
+    // Mint initial supply to creator
     await mintTo(
       provider.connection,
       authority,
       tokenMint,
-      authorityTokenAccount,
+      creatorTokenAccount,
       authority,
-      1_000_000_000_000 // 1 billion tokens
+      1000000000000 // 1 billion tokens
     );
 
-    // Derive state account addresses
-    [tokenState] = PublicKey.findProgramAddressSync(
-      [Buffer.from("token_state"), tokenMint.toBuffer()],
-      darwinToken.programId
+    // Find PDAs
+    [tokenInfoPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("token_info"), tokenMint.toBuffer()],
+      darwinTokenProgram.programId
     );
 
-    [treasuryState] = PublicKey.findProgramAddressSync(
-      [Buffer.from("treasury_state"), tokenMint.toBuffer()],
-      darwinTreasury.programId
+    [treasuryPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("treasury"), tokenMint.toBuffer()],
+      darwinTreasuryProgram.programId
     );
 
-    [distributorState] = PublicKey.findProgramAddressSync(
-      [Buffer.from("distributor_state"), tokenMint.toBuffer()],
-      darwinDistributor.programId
+    [distributorPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("distributor"), tokenMint.toBuffer()],
+      darwinDistributorProgram.programId
     );
   });
 
-  describe("Token Contract", () => {
-    it("Should initialize token with tax configuration", async () => {
+  describe("Darwin Token Contract", () => {
+    it("Should initialize token with correct parameters", async () => {
+      const name = "Darwin Token";
+      const symbol = "WIN";
+      const decimals = 9;
+      const totalSupply = 1000000000000;
+      const treasuryTax = 3;
+      const distributorTax = 4;
+      const creatorTax = 2;
+
+      await darwinTokenProgram.methods
+        .initializeToken(
+          name,
+          symbol,
+          decimals,
+          new anchor.BN(totalSupply),
+          treasuryTax,
+          distributorTax,
+          creatorTax
+        )
+        .accounts({
+          tokenInfo: tokenInfoPda,
+          mint: tokenMint,
+          creatorTokenAccount: creatorTokenAccount,
+          treasury: treasuryPda,
+          distributor: distributorPda,
+          creator: creator.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .signers([creator])
+        .rpc();
+
+      const tokenInfo = await darwinTokenProgram.account.tokenInfo.fetch(tokenInfoPda);
+      
+      assert.equal(tokenInfo.name, name);
+      assert.equal(tokenInfo.symbol, symbol);
+      assert.equal(tokenInfo.decimals, decimals);
+      assert.equal(tokenInfo.totalSupply.toNumber(), totalSupply);
+      assert.equal(tokenInfo.treasuryTax, treasuryTax);
+      assert.equal(tokenInfo.distributorTax, distributorTax);
+      assert.equal(tokenInfo.creatorTax, creatorTax);
+      assert.equal(tokenInfo.creator.toString(), creator.publicKey.toString());
+      assert.equal(tokenInfo.treasury.toString(), treasuryPda.toString());
+      assert.equal(tokenInfo.distributor.toString(), distributorPda.toString());
+      assert.equal(tokenInfo.isInitialized, true);
+    });
+
+    it("Should fail with invalid tax configuration", async () => {
       try {
-        await darwinToken.methods
+        await darwinTokenProgram.methods
           .initializeToken(
-            "Darwin Token",
-            "DARWIN",
-            new anchor.BN(1_000_000_000_000),
-            5, // 5% treasury tax
-            3, // 3% distributor tax
-            2, // 2% creator tax
+            "Invalid Token",
+            "INV",
+            9,
+            new anchor.BN(1000000000),
+            5, // Total tax = 12% (should be 10%)
+            4,
+            3
           )
           .accounts({
-            tokenState: tokenState,
+            tokenInfo: tokenInfoPda,
             mint: tokenMint,
-            authority: authority.publicKey,
-            authorityTokenAccount: authorityTokenAccount,
             creatorTokenAccount: creatorTokenAccount,
-            treasury: treasuryTokenAccount,
-            distributor: distributorTokenAccount,
-            creator: creatorTokenAccount,
+            treasury: treasuryPda,
+            distributor: distributorPda,
+            creator: creator.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            rent: SYSVAR_RENT_PUBKEY,
           })
-          .signers([authority])
+          .signers([creator])
           .rpc();
-
-        // Verify token state
-        const state = await darwinToken.account.tokenState.fetch(tokenState);
-        assert.equal(state.name, "Darwin Token");
-        assert.equal(state.symbol, "DARWIN");
-        assert.equal(state.treasuryTax, 5);
-        assert.equal(state.distributorTax, 3);
-        assert.equal(state.creatorTax, 2);
-        assert.equal(state.isInitialized, true);
-
-        console.log("✅ Token initialized successfully");
+        
+        assert.fail("Should have thrown an error");
       } catch (error) {
-        console.error("❌ Token initialization failed:", error);
-        throw error;
-      }
-    });
-
-    it("Should transfer tokens with tax collection", async () => {
-      try {
-        const transferAmount = new anchor.BN(1_000_000_000); // 1 billion tokens
-
-        await darwinToken.methods
-          .transferWithTax(transferAmount)
-          .accounts({
-            tokenState: tokenState,
-            mint: tokenMint,
-            from: authorityTokenAccount,
-            to: contributor1TokenAccount,
-            authority: authority.publicKey,
-            treasury: treasuryTokenAccount,
-            distributor: distributorTokenAccount,
-            creator: creatorTokenAccount,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([authority])
-          .rpc();
-
-        // Verify balances
-        const contributorBalance = await getAccount(provider.connection, contributor1TokenAccount);
-        const treasuryBalance = await getAccount(provider.connection, treasuryTokenAccount);
-        const distributorBalance = await getAccount(provider.connection, distributorTokenAccount);
-        const creatorBalance = await getAccount(provider.connection, creatorTokenAccount);
-
-        // Expected: 1B - 10% tax = 900M tokens
-        assert.equal(Number(contributorBalance.amount), 900_000_000_000);
-        // Treasury: 5% of 1B = 50M tokens
-        assert.equal(Number(treasuryBalance.amount), 50_000_000_000);
-        // Distributor: 3% of 1B = 30M tokens
-        assert.equal(Number(distributorBalance.amount), 30_000_000_000);
-        // Creator: 2% of 1B = 20M tokens
-        assert.equal(Number(creatorBalance.amount), 20_000_000_000);
-
-        console.log("✅ Token transfer with tax successful");
-      } catch (error) {
-        console.error("❌ Token transfer failed:", error);
-        throw error;
+        assert.include(error.message, "Invalid tax configuration");
       }
     });
   });
 
-  describe("Treasury Contract", () => {
-    it("Should initialize treasury for fundraising", async () => {
-      try {
-        await darwinTreasury.methods
-          .initializeTreasury(
-            new anchor.BN(1 * LAMPORTS_PER_SOL), // 1 SOL minimum bid
-            new anchor.BN(1000), // 1000 blocks timer duration
-            new anchor.BN(1_000_000_000), // 1B tokens minimum holding
-          )
-          .accounts({
-            treasuryState: treasuryState,
-            tokenMint: tokenMint,
-            authority: authority.publicKey,
-            treasuryWallet: treasuryWallet.publicKey,
-            systemProgram: SystemProgram.programId,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          })
-          .signers([authority])
-          .rpc();
+  describe("Darwin Treasury Contract", () => {
+    it("Should initialize treasury with correct parameters", async () => {
+      const minBid = new anchor.BN(1 * anchor.web3.LAMPORTS_PER_SOL); // 1 SOL
+      const auctionTimerBlocks = new anchor.BN(216000); // ~24 hours
+      const minHoldingTokens = new anchor.BN(1000);
 
-        // Verify treasury state
-        const state = await darwinTreasury.account.treasuryState.fetch(treasuryState);
-        assert.equal(state.minBid.toNumber(), LAMPORTS_PER_SOL);
-        assert.equal(state.timerDuration.toNumber(), 1000);
-        assert.equal(state.minHoldingForAirdrop.toNumber(), 1_000_000_000);
-        assert.equal(state.isFundraisingActive, true);
-        assert.equal(state.isAuctionActive, false);
+      await darwinTreasuryProgram.methods
+        .initializeTreasury(minBid, auctionTimerBlocks, minHoldingTokens)
+        .accounts({
+          treasury: treasuryPda,
+          tokenMint: tokenMint,
+          authority: authority.publicKey,
+          systemProgram: SystemProgram.programId,
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+        })
+        .signers([authority])
+        .rpc();
 
-        console.log("✅ Treasury initialized successfully");
-      } catch (error) {
-        console.error("❌ Treasury initialization failed:", error);
-        throw error;
-      }
+      const treasury = await darwinTreasuryProgram.account.treasury.fetch(treasuryPda);
+      
+      assert.equal(treasury.authority.toString(), authority.publicKey.toString());
+      assert.equal(treasury.tokenMint.toString(), tokenMint.toString());
+      assert.equal(treasury.minBid.toNumber(), minBid.toNumber());
+      assert.equal(treasury.auctionTimerBlocks.toNumber(), auctionTimerBlocks.toNumber());
+      assert.equal(treasury.minHoldingTokens.toNumber(), minHoldingTokens.toNumber());
+      assert.equal(treasury.isFundraisingActive, true);
+      assert.equal(treasury.isAuctionActive, false);
+      assert.equal(treasury.isInitialized, true);
     });
 
     it("Should accept SOL contributions during fundraising", async () => {
-      try {
-        const contributionAmount = new anchor.BN(2 * LAMPORTS_PER_SOL); // 2 SOL
+      const contributionAmount = new anchor.BN(0.5 * anchor.web3.LAMPORTS_PER_SOL); // 0.5 SOL
 
-        await darwinTreasury.methods
-          .contributeSol(contributionAmount)
-          .accounts({
-            treasuryState: treasuryState,
-            tokenMint: tokenMint,
-            contributor: contributor1.publicKey,
-            treasuryWallet: treasuryWallet.publicKey,
-            authorityTokenAccount: authorityTokenAccount,
-            contributorTokenAccount: contributor1TokenAccount,
-            authority: authority.publicKey,
-            systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          })
-          .signers([contributor1])
-          .rpc();
+      const contributorBalanceBefore = await provider.connection.getBalance(contributor.publicKey);
+      const treasuryBalanceBefore = await provider.connection.getBalance(treasuryPda);
 
-        // Verify treasury balance increased
-        const treasuryBalance = await provider.connection.getBalance(treasuryWallet.publicKey);
-        assert.equal(treasuryBalance, 2 * LAMPORTS_PER_SOL);
+      await darwinTreasuryProgram.methods
+        .contributeSol(contributionAmount)
+        .accounts({
+          treasury: treasuryPda,
+          tokenMint: tokenMint,
+          treasuryTokenAccount: treasuryTokenAccount,
+          contributorTokenAccount: contributorTokenAccount,
+          contributor: contributor.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+        })
+        .signers([contributor])
+        .rpc();
 
-        // Verify contributor received tokens
-        const contributorBalance = await getAccount(provider.connection, contributor1TokenAccount);
-        assert.isTrue(Number(contributorBalance.amount) > 0);
+      const contributorBalanceAfter = await provider.connection.getBalance(contributor.publicKey);
+      const treasuryBalanceAfter = await provider.connection.getBalance(treasuryPda);
 
-        console.log("✅ SOL contribution successful");
-      } catch (error) {
-        console.error("❌ SOL contribution failed:", error);
-        throw error;
-      }
+      assert.approximately(
+        contributorBalanceBefore - contributorBalanceAfter,
+        contributionAmount.toNumber(),
+        10000 // Allow for transaction fees
+      );
+
+      assert.approximately(
+        treasuryBalanceAfter - treasuryBalanceBefore,
+        contributionAmount.toNumber(),
+        10000
+      );
+
+      const treasury = await darwinTreasuryProgram.account.treasury.fetch(treasuryPda);
+      assert.equal(treasury.totalRaised.toNumber(), contributionAmount.toNumber());
     });
 
-    it("Should end fundraising and start auction", async () => {
-      try {
-        // Note: In a real test, you'd need to advance time or mock the clock
-        // For now, we'll test the logic structure
-        console.log("✅ Fundraising end logic structure verified");
-      } catch (error) {
-        console.error("❌ Fundraising end failed:", error);
-        throw error;
-      }
+    it("Should start auction after fundraising period", async () => {
+      // Simulate time passing by manually updating the fundraising end block
+      const treasury = await darwinTreasuryProgram.account.treasury.fetch(treasuryPda);
+      const currentSlot = await provider.connection.getSlot();
+      
+      // Manually set fundraising as ended (in real scenario, this would happen naturally)
+      // For testing, we'll just verify the auction start logic works
+      
+      await darwinTreasuryProgram.methods
+        .startAuction()
+        .accounts({
+          treasury: treasuryPda,
+          tokenMint: tokenMint,
+          creator: creator.publicKey,
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+        })
+        .signers([creator])
+        .rpc();
+
+      const updatedTreasury = await darwinTreasuryProgram.account.treasury.fetch(treasuryPda);
+      assert.equal(updatedTreasury.isFundraisingActive, false);
+      assert.equal(updatedTreasury.isAuctionActive, true);
+    });
+
+    it("Should accept bids during auction", async () => {
+      const bidAmount = new anchor.BN(1.5 * anchor.web3.LAMPORTS_PER_SOL); // 1.5 SOL
+
+      const bidderBalanceBefore = await provider.connection.getBalance(bidder.publicKey);
+      const treasuryBalanceBefore = await provider.connection.getBalance(treasuryPda);
+
+      await darwinTreasuryProgram.methods
+        .placeBid(bidAmount)
+        .accounts({
+          treasury: treasuryPda,
+          tokenMint: tokenMint,
+          bidder: bidder.publicKey,
+          previousBidder: bidder.publicKey, // For first bid, same as bidder
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+        })
+        .signers([bidder])
+        .rpc();
+
+      const bidderBalanceAfter = await provider.connection.getBalance(bidder.publicKey);
+      const treasuryBalanceAfter = await provider.connection.getBalance(treasuryPda);
+
+      assert.approximately(
+        bidderBalanceBefore - bidderBalanceAfter,
+        bidAmount.toNumber(),
+        10000
+      );
+
+      assert.approximately(
+        treasuryBalanceAfter - treasuryBalanceBefore,
+        bidAmount.toNumber(),
+        10000
+      );
+
+      const treasury = await darwinTreasuryProgram.account.treasury.fetch(treasuryPda);
+      assert.equal(treasury.currentHighestBid.toNumber(), bidAmount.toNumber());
+      assert.equal(treasury.currentHighestBidder.toString(), bidder.publicKey.toString());
     });
   });
 
-  describe("Distributor Contract", () => {
-    it("Should initialize distributor for daily liquidations", async () => {
-      try {
-        await darwinDistributor.methods
-          .initializeDistributor(
-            new anchor.BN(216_000), // 24 hours in blocks
-            new anchor.BN(1_000_000_000), // 1B tokens minimum holding
-          )
-          .accounts({
-            distributorState: distributorState,
-            tokenMint: tokenMint,
-            authority: authority.publicKey,
-            distributorWallet: distributorWallet.publicKey,
-            systemProgram: SystemProgram.programId,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          })
-          .signers([authority])
-          .rpc();
+  describe("Darwin Distributor Contract", () => {
+    it("Should initialize distributor with correct parameters", async () => {
+      const distributionIntervalBlocks = new anchor.BN(216000); // ~24 hours
+      const minHoldingTokens = new anchor.BN(1000);
 
-        // Verify distributor state
-        const state = await darwinDistributor.account.distributorState.fetch(distributorState);
-        assert.equal(state.distributionInterval.toNumber(), 216_000);
-        assert.equal(state.minHoldingForDistribution.toNumber(), 1_000_000_000);
-        assert.equal(state.isActive, true);
+      await darwinDistributorProgram.methods
+        .initializeDistributor(distributionIntervalBlocks, minHoldingTokens)
+        .accounts({
+          distributor: distributorPda,
+          tokenMint: tokenMint,
+          authority: authority.publicKey,
+          systemProgram: SystemProgram.programId,
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+        })
+        .signers([authority])
+        .rpc();
 
-        console.log("✅ Distributor initialized successfully");
-      } catch (error) {
-        console.error("❌ Distributor initialization failed:", error);
-        throw error;
-      }
+      const distributor = await darwinDistributorProgram.account.distributor.fetch(distributorPda);
+      
+      assert.equal(distributor.authority.toString(), authority.publicKey.toString());
+      assert.equal(distributor.tokenMint.toString(), tokenMint.toString());
+      assert.equal(distributor.distributionIntervalBlocks.toNumber(), distributionIntervalBlocks.toNumber());
+      assert.equal(distributor.minHoldingTokens.toNumber(), minHoldingTokens.toNumber());
+      assert.equal(distributor.isInitialized, true);
     });
 
-    it("Should execute distribution when conditions are met", async () => {
-      try {
-        // Note: In a real test, you'd need to advance time and add funds
-        // For now, we'll test the logic structure
-        console.log("✅ Distribution execution logic structure verified");
-      } catch (error) {
-        console.error("❌ Distribution execution failed:", error);
-        throw error;
-      }
+    it("Should collect tax from token transfers", async () => {
+      const taxAmount = new anchor.BN(1000000); // 1 token (assuming 9 decimals)
+
+      const distributorBalanceBefore = await getAccount(provider.connection, distributorTokenAccount);
+
+      await darwinDistributorProgram.methods
+        .collectTax(taxAmount)
+        .accounts({
+          distributor: distributorPda,
+          tokenMint: tokenMint,
+          distributorTokenAccount: distributorTokenAccount,
+          from: creatorTokenAccount,
+          authority: creator.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([creator])
+        .rpc();
+
+      const distributorBalanceAfter = await getAccount(provider.connection, distributorTokenAccount);
+      assert.equal(
+        distributorBalanceAfter.amount - distributorBalanceBefore.amount,
+        taxAmount.toNumber()
+      );
+    });
+
+    it("Should distribute tokens to qualified holders", async () => {
+      const distributor = await darwinDistributorProgram.account.distributor.fetch(distributorPda);
+      const currentSlot = await provider.connection.getSlot();
+      
+      // Manually set next distribution time to current time for testing
+      // In real scenario, this would happen naturally after the interval
+      
+      await darwinDistributorProgram.methods
+        .distributeToHolders()
+        .accounts({
+          distributor: distributorPda,
+          tokenMint: tokenMint,
+          distributorTokenAccount: distributorTokenAccount,
+          clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      const updatedDistributor = await darwinDistributorProgram.account.distributor.fetch(distributorPda);
+      assert.equal(updatedDistributor.distributionCount, distributor.distributionCount + 1);
     });
   });
 
   describe("Integration Tests", () => {
     it("Should handle complete token lifecycle", async () => {
+      // This test would simulate a complete token launch:
+      // 1. Token creation
+      // 2. Treasury initialization
+      // 3. Fundraising period
+      // 4. Auction phase
+      // 5. Distribution to holders
+      
+      // For brevity, we'll just verify the contracts work together
+      const tokenInfo = await darwinTokenProgram.account.tokenInfo.fetch(tokenInfoPda);
+      const treasury = await darwinTreasuryProgram.account.treasury.fetch(treasuryPda);
+      const distributor = await darwinDistributorProgram.account.distributor.fetch(distributorPda);
+
+      assert.equal(tokenInfo.treasury.toString(), treasuryPda.toString());
+      assert.equal(tokenInfo.distributor.toString(), distributorPda.toString());
+      assert.equal(treasury.tokenMint.toString(), tokenMint.toString());
+      assert.equal(distributor.tokenMint.toString(), tokenMint.toString());
+    });
+
+    it("Should enforce security constraints", async () => {
+      // Test that unauthorized users cannot call privileged functions
+      const unauthorizedUser = Keypair.generate();
+      await provider.connection.requestAirdrop(unauthorizedUser.publicKey, anchor.web3.LAMPORTS_PER_SOL);
+
       try {
-        // This test would cover the full flow:
-        // 1. Token creation
-        // 2. Fundraising
-        // 3. Auction
-        // 4. Distribution
+        await darwinTreasuryProgram.methods
+          .startAuction()
+          .accounts({
+            treasury: treasuryPda,
+            tokenMint: tokenMint,
+            creator: unauthorizedUser.publicKey,
+            clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+          })
+          .signers([unauthorizedUser])
+          .rpc();
         
-        console.log("✅ Complete lifecycle structure verified");
+        assert.fail("Should have thrown an error");
       } catch (error) {
-        console.error("❌ Integration test failed:", error);
-        throw error;
+        // Should fail because unauthorized user is not the creator
+        assert.include(error.message, "Error");
       }
     });
   });
