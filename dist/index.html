@@ -3,861 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Darwin Platform - Token Launchpad</title>
+    <title>Darwin Platform - Complete Token Launchpad (Direct Deploy)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
-    <script>
-        // Embedded SPL Token functions - no external dependencies
-        const SPL_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-        
-        async function createMint(connection, payer, mintAuthority, freezeAuthority, decimals) {
-            const mint = solanaWeb3.Keypair.generate();
-            
-            // Fixed: Use correct function for rent calculation
-            const lamports = await connection.getMinimumBalanceForRentExemption(82);
-            
-            const transaction = new solanaWeb3.Transaction().add(
-                solanaWeb3.SystemProgram.createAccount({
-                    fromPubkey: payer.publicKey,
-                    newAccountPubkey: mint.publicKey,
-                    space: 82,
-                    lamports,
-                    programId: SPL_TOKEN_PROGRAM_ID,
-                }),
-                solanaWeb3.Token.createInitializeMintInstruction(
-                    SPL_TOKEN_PROGRAM_ID,
-                    mint.publicKey,
-                    decimals,
-                    mintAuthority,
-                    freezeAuthority
-                )
-            );
-            
-            const signature = await wallet.sendTransaction(transaction, connection, {
-                signers: [mint],
-            });
-            
-            await connection.confirmTransaction(signature);
-            return mint.publicKey;
-        }
-        
-        async function createAccount(connection, payer, mint, owner) {
-            const account = solanaWeb3.Keypair.generate();
-            
-            // Fixed: Use correct function for rent calculation
-            const lamports = await connection.getMinimumBalanceForRentExemption(165);
-            
-            const transaction = new solanaWeb3.Transaction().add(
-                solanaWeb3.SystemProgram.createAccount({
-                    fromPubkey: payer.publicKey,
-                    newAccountPubkey: account.publicKey,
-                    space: 165,
-                    lamports,
-                    programId: SPL_TOKEN_PROGRAM_ID,
-                }),
-                solanaWeb3.Token.createInitializeAccountInstruction(
-                    SPL_TOKEN_PROGRAM_ID,
-                    account.publicKey,
-                    mint,
-                    owner
-                )
-            );
-            
-            const signature = await wallet.sendTransaction(transaction, connection, {
-                signers: [account],
-            });
-            
-            await connection.confirmTransaction(signature);
-            return account.publicKey;
-        }
-        
-        async function mintTo(connection, payer, mint, destination, authority, amount) {
-            const transaction = new solanaWeb3.Transaction().add(
-                solanaWeb3.Token.createMintToInstruction(
-                    SPL_TOKEN_PROGRAM_ID,
-                    mint,
-                    destination,
-                    authority,
-                    [],
-                    amount
-                )
-            );
-            
-            const signature = await wallet.sendTransaction(transaction, connection);
-            await connection.confirmTransaction(signature);
-        }
-
-        // Add missing SPL Token instruction functions
-        function createInitializeMintInstruction(programId, mint, decimals, mintAuthority, freezeAuthority) {
-            const keys = [
-                { pubkey: mint, isSigner: false, isWritable: true },
-                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-                { pubkey: new solanaWeb3.PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false }
-            ];
-            
-            const data = Buffer.alloc(67);
-            data.writeUInt8(0, 0); // InitializeMint instruction
-            data.writeUInt8(decimals, 1);
-            data.write(mintAuthority.toBytes(), 2);
-            data.write(freezeAuthority ? freezeAuthority.toBytes() : Buffer.alloc(32), 34);
-            
-            return new solanaWeb3.TransactionInstruction({
-                keys,
-                programId,
-                data
-            });
-        }
-
-        function createInitializeAccountInstruction(programId, account, mint, owner) {
-            const keys = [
-                { pubkey: account, isSigner: false, isWritable: true },
-                { pubkey: mint, isSigner: false, isWritable: false },
-                { pubkey: owner, isSigner: false, isWritable: false },
-                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
-                { pubkey: new solanaWeb3.PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false }
-            ];
-            
-            const data = Buffer.alloc(1);
-            data.writeUInt8(1, 0); // InitializeAccount instruction
-            
-            return new solanaWeb3.TransactionInstruction({
-                keys,
-                programId,
-                data
-            });
-        }
-
-        function createMintToInstruction(programId, mint, destination, authority, signers, amount) {
-            const keys = [
-                { pubkey: mint, isSigner: false, isWritable: true },
-                { pubkey: destination, isSigner: false, isWritable: true }
-            ];
-            
-            if (authority) {
-                keys.push({ pubkey: authority, isSigner: true, isWritable: false });
-            }
-            
-            const data = Buffer.alloc(9);
-            data.writeUInt8(7, 0); // MintTo instruction
-            data.writeBigUInt64LE(BigInt(amount), 1);
-            
-            return new solanaWeb3.TransactionInstruction({
-                keys,
-                programId,
-                data
-            });
-        }
-
-        // Add Token namespace to solanaWeb3
-        solanaWeb3.Token = {
-            createInitializeMintInstruction,
-            createInitializeAccountInstruction,
-            createMintToInstruction
-        };
-    </script>
     <style>
-        .btn-primary {
-            @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors;
-        }
-        .btn-secondary {
-            @apply bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors;
-        }
-        .card {
-            @apply bg-white rounded-lg shadow-md p-6 border border-gray-200;
-        }
-        .notification {
-            @apply fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm;
-        }
-        .notification.success {
-            @apply bg-green-500 text-white;
-        }
-        .notification.error {
-            @apply bg-red-500 text-white;
-        }
-        .notification.info {
-            @apply bg-blue-500 text-white;
-        }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .progress-bar { @apply w-full bg-gray-200 rounded-full h-2; }
+        .progress-fill { @apply h-2 rounded-full transition-all duration-300; }
+        .notification { @apply fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm; }
+        .notification.success { @apply bg-green-500 text-white; }
+        .notification.error { @apply bg-red-500 text-white; }
+        .notification.info { @apply bg-blue-500 text-white; }
+        .notification.warning { @apply bg-yellow-500 text-white; }
+        .token-card { @apply bg-white rounded-xl p-6 shadow-sm border border-gray-200; }
+        .btn-primary { @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
+        .btn-secondary { @apply bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
+        .btn-success { @apply bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
+        .btn-warning { @apply bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
+        .btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors; }
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Header -->
-    <header class="bg-gradient-to-r from-white to-gray-50 shadow-lg border-b border-gray-100">
-        <div class="container mx-auto px-4">
-            <div class="flex items-center justify-between h-20">
-                <div class="flex items-center space-x-3">
-                    <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                        <span class="text-white font-bold text-xl">🚀</span>
-                    </div>
-                    <div>
-                        <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Darwin Launchpad</span>
-                        <p class="text-sm text-gray-500">Next-Gen Token Launchpad</p>
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg fixed w-full z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-gray-900">Darwin Platform</h1>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <button onclick="deploySmartContracts()" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200">
-                        <span class="mr-2">🚀</span>Deploy Contracts
+                    <div class="text-sm text-gray-600">
+                        <span id="network-status" class="px-2 py-1 bg-green-100 text-green-800 rounded-full">Testnet</span>
+                    </div>
+                    <button id="wallet-button" onclick="connectWallet()" class="btn-primary">
+                        🔗 Connect Wallet
                     </button>
-                    <div id="wallet-connection">
-                        <button id="connect-wallet-btn" onclick="connectWallet()" class="btn-primary text-lg px-6 py-3">
-                        <span class="mr-2">🔗</span>Connect Wallet
-                    </button>
-                        <div id="wallet-info" class="hidden">
-                            <div class="flex items-center space-x-2">
-                                <span id="wallet-address" class="text-sm text-gray-600"></span>
-                                <button id="disconnect-wallet-btn" onclick="disconnectWallet()" class="text-sm text-red-600 hover:text-red-800">Disconnect</button>
+                    <div id="wallet-info" class="hidden text-sm text-gray-600">
+                        <span id="wallet-balance">0 SOL</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- Platform Overview -->
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">Darwin Platform - Complete Token Launchpad</h2>
+                <p class="text-gray-600 mb-6">Non-custodial, trustless, globally scalable token launchpad with automated treasury and distributor contracts.</p>
+                
+                <!-- Platform Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <div class="text-2xl font-bold text-blue-600" id="total-tokens">0</div>
+                        <div class="text-gray-600">Tokens Launched</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <div class="text-2xl font-bold text-green-600" id="total-raised">0 SOL</div>
+                        <div class="text-gray-600">Total Raised</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <div class="text-2xl font-bold text-purple-600" id="active-auctions">0</div>
+                        <div class="text-gray-600">Active Auctions</div>
+                    </div>
+                    <div class="bg-white rounded-lg p-6 shadow-sm">
+                        <div class="text-2xl font-bold text-orange-600" id="total-users">0</div>
+                        <div class="text-gray-600">Platform Users</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Dashboard Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <!-- Left Column: Token Creation & Management -->
+                <div class="lg:col-span-1 space-y-6">
+                    
+                    <!-- Token Creation -->
+                    <div class="token-card">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">🚀 Create New Token</h3>
+                        
+                        <form id="token-creation-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Token Name</label>
+                                <input type="text" id="token-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g., My Awesome Token" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Token Symbol</label>
+                                <input type="text" id="token-symbol" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g., MAT" maxlength="10" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Total Supply</label>
+                                <input type="number" id="token-supply" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="1000000" min="1" max="1000000000" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Team Allocation (%)</label>
+                                <input type="number" id="team-allocation" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="10" min="1" max="20" step="0.1" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Team Wallet Address</label>
+                                <input type="text" id="team-wallet" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter team wallet address" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Bid (SOL)</label>
+                                <input type="number" id="min-bid" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="1" min="0.1" step="0.1" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Auction Timer (blocks)</label>
+                                <input type="number" id="auction-timer" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="216000" min="1000" required>
+                            </div>
+                            
+                            <!-- Tax Configuration -->
+                            <div class="border-t pt-4">
+                                <h4 class="text-lg font-medium text-gray-900 mb-3">Tax Configuration</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Treasury Tax (%)</label>
+                                        <input type="number" id="treasury-tax" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="3" min="0" max="10" step="0.1" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Distributor Tax (%)</label>
+                                        <input type="number" id="distributor-tax" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="4" min="0" max="10" step="0.1" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Creator Tax (%)</label>
+                                        <input type="number" id="creator-tax" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="2" min="0" max="10" step="0.1" required>
+                                    </div>
+                                    <div id="tax-validation" class="text-sm text-red-600 hidden">
+                                        Total tax must equal 10%
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="w-full btn-primary">
+                                🚀 Deploy Token & Contracts
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Contract Status -->
+                    <div class="token-card">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">📋 Contract Status</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Token Contract</span>
+                                <span id="token-status" class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">Not Deployed</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Treasury Contract</span>
+                                <span id="treasury-status" class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">Not Deployed</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Distributor Contract</span>
+                                <span id="distributor-status" class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">Not Deployed</span>
+                            </div>
+                        </div>
+                        
+                        <div id="deployed-contracts" class="mt-4 space-y-2 hidden">
+                            <h4 class="text-sm font-medium text-gray-900">Deployed Addresses:</h4>
+                            <div class="text-xs space-y-1">
+                                <div>Token: <span id="token-address" class="font-mono text-blue-600"></span></div>
+                                <div>Treasury: <span id="treasury-address" class="font-mono text-green-600"></span></div>
+                                <div>Distributor: <span id="distributor-address" class="font-mono text-purple-600"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Platform Token ($WIN) -->
+                    <div class="token-card">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">🏆 Platform Token ($WIN)</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Total Supply</span>
+                                <span class="font-medium">1,000,000 WIN</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Your Balance</span>
+                                <span id="win-balance" class="font-medium">0 WIN</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Mint Address</span>
+                                <span class="text-xs font-mono text-blue-600">So11111111111111111111111111111111111111112</span>
+                            </div>
+                        </div>
+                        <button onclick="importWinToken()" class="w-full btn-secondary mt-4">
+                            📋 Import $WIN to Wallet
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Center Column: Fundraising & Auctions -->
+                <div class="lg:col-span-2 space-y-6">
+                    
+                    <!-- Fundraising Section -->
+                    <div class="token-card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-semibold text-gray-900">💰 Active Fundraising</h3>
+                            <span class="text-sm text-gray-500">200,000 blocks (~24 hours)</span>
+                        </div>
+                        
+                        <div id="fundraising-container" class="space-y-4">
+                            <!-- Fundraising cards will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Live Auctions Section -->
+                    <div class="token-card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-semibold text-gray-900">🏆 Live Auctions</h3>
+                            <span class="text-sm text-gray-500">Last Man Standing</span>
+                        </div>
+                        
+                        <div id="auctions-container" class="space-y-4">
+                            <!-- Auction cards will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Treasury & Distributor Status -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="token-card">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-4">🏦 Treasury Status</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Total Locked</span>
+                                    <span id="treasury-total" class="font-medium">0 SOL</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">LP Burned</span>
+                                    <span id="treasury-lp" class="font-medium">0 SOL</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Creator Paid</span>
+                                    <span id="treasury-creator" class="font-medium">0 SOL</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Available for Auction</span>
+                                    <span id="treasury-auction" class="font-medium">0 SOL</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="token-card">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-4">📊 Distributor Status</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Daily Tax Collected</span>
+                                    <span id="distributor-daily" class="font-medium">0 SOL</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Next Distribution</span>
+                                    <span id="distributor-next" class="font-medium">24h 00m</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Qualified Holders</span>
+                                    <span id="distributor-holders" class="font-medium">0</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Min Holding Required</span>
+                                    <span id="distributor-min" class="font-medium">1000 tokens</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </header>
-
-    <!-- Main Layout -->
-    <div class="flex h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-        <!-- Left Sidebar -->
-        <div class="w-72 bg-white/80 backdrop-blur-md shadow-xl border-r border-gray-100">
-            <div class="p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Navigation</h2>
-                <nav class="space-y-3">
-                    <div class="nav-tab active" onclick="showSection('winningview')">
-                        <span class="text-xl">🏆</span>
-                        <span class="font-semibold">WinningView</span>
-                    </div>
-                    <div class="nav-tab" onclick="showSection('create-vault')">
-                        <span class="text-xl">🔧</span>
-                        <span class="font-semibold">Create Vault</span>
-                    </div>
-                    <div class="nav-tab bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:from-green-600 hover:to-emerald-700 transform hover:scale-105 transition-all duration-200" onclick="deploySmartContracts()">
-                        <span class="text-xl">🚀</span>
-                        <span class="font-semibold">Deploy Contracts</span>
-                    </div>
-                </nav>
-            </div>
-        </div>
-
-        <!-- Main Content Area -->
-        <div class="flex-1 overflow-auto">
-            <!-- WinningView Section -->
-            <div id="winningview" class="content-section active">
-                <div class="p-8">
-                    <div class="max-w-7xl mx-auto">
-                        <!-- Page Header -->
-                        <div class="section-header mb-8">
-                            <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">WinningView - Active Fundraises</h1>
-                            <p class="text-gray-600 text-lg">Monitor active fundraising campaigns and Last Man Standing auctions</p>
-                        </div>
-
-
-
-                        <!-- Two Column Layout -->
-                        <div class="grid md:grid-cols-2 gap-8">
-                            <!-- Fundraising Section -->
-                            <div>
-                                <div class="flex items-center justify-between mb-6">
-                                    <div class="flex items-center space-x-3">
-                                        <h2 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Fundraising</h2>
-                                        <button onclick="toggleProRataInfo()" class="w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors duration-200 group relative">
-                                            <span class="text-gray-500 text-sm">ℹ️</span>
-                                            <!-- Tooltip -->
-                                            <div id="proRataTooltip" class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 z-50">
-                                                <div class="flex items-start space-x-3">
-                                                    <div class="flex-shrink-0">
-                                                        <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                                            <span class="text-blue-600 text-xs">⚖️</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex-1">
-                                                        <h4 class="font-medium text-gray-900 mb-1 text-sm">Pro-Rata Token Distribution</h4>
-                                                        <p class="text-xs text-gray-600 mb-2">
-                                                            Tokens are distributed proportionally to your contribution relative to the total raised.
-                                                        </p>
-                                                        <div class="text-xs text-gray-500 space-y-1">
-                                                            <div>• 80% of total supply available for public sale</div>
-                                                            <div>• Your share = (Your SOL / Total SOL raised) × Available tokens</div>
-                                                            <div>• Fair distribution: everyone gets tokens proportional to their contribution</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <!-- Arrow -->
-                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white"></div>
-                                            </div>
-                                        </button>
-                                    </div>
-                                    <span class="text-sm text-gray-500 bg-white/50 px-3 py-1 rounded-full">Sorted by: Highest Raised</span>
-                                </div>
-                                
-                                                                 <div class="space-y-4 max-h-96 overflow-y-auto pr-2" id="fundraising-container">
-                                     <!-- DARWIN Token -->
-                                    <div class="token-card">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                                    <span class="text-white font-bold text-lg">🚀</span>
-                                                </div>
-                                                <div>
-                                                    <h3 class="font-semibold text-gray-900">DARWIN Token</h3>
-                                                    <p class="text-sm text-gray-500">$WIN</p>
-                                                </div>
-                                            </div>
-                                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                                            <div>
-                                                <div class="text-gray-500">Raised SOL</div>
-                                                <div class="font-medium">1,247.5</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Contributors</div>
-                                                <div class="font-medium">1,234</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Progress</div>
-                                                <div class="font-medium">45.2%</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Left</div>
-                                                <div class="font-medium text-red-600">18h 23m</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                                                <span>Fundraising Progress</span>
-                                                <span>45.2%</span>
-                                            </div>
-                                            <div class="progress-bar">
-                                                <div class="progress-fill bg-gradient-to-r from-blue-500 to-blue-600" style="width: 45.2%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <button onclick="contribute('darwin')" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                                            💰 Contribute
-                                        </button>
-                                    </div>
-
-                                    <!-- DeFi Master -->
-                                    <div class="token-card">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                                    <span class="text-white font-bold text-lg">💎</span>
-                                                </div>
-                                                <div>
-                                                    <h3 class="font-semibold text-gray-900">DeFi Master</h3>
-                                                    <p class="text-sm text-gray-500">$DEFI</p>
-                                                </div>
-                                            </div>
-                                                                                         <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Fundraising</span>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                                            <div>
-                                                <div class="text-gray-500">Raised SOL</div>
-                                                <div class="font-medium">847.2</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Contributors</div>
-                                                <div class="font-medium">567</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Progress</div>
-                                                <div class="font-medium">23.8%</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Left</div>
-                                                <div class="font-medium text-red-600">22h 15m</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                                                <span>Fundraising Progress</span>
-                                                <span>23.8%</span>
-                                            </div>
-                                            <div class="progress-bar">
-                                                <div class="progress-fill bg-gradient-to-r from-blue-500 to-blue-600" style="width: 23.8%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <button onclick="contribute('defi')" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                                            💰 Contribute
-                                        </button>
-                                    </div>
-
-                                    <!-- AI Protocol -->
-                                    <div class="token-card">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                                    <span class="text-white font-bold text-lg">🤖</span>
-                                                </div>
-                                                <div>
-                                                    <h3 class="font-semibold text-gray-900">AI Protocol</h3>
-                                                    <p class="text-sm text-gray-500">$AIP</p>
-                                                </div>
-                                            </div>
-                                                                                         <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Active</span>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                                            <div>
-                                                <div class="text-gray-500">Raised SOL</div>
-                                                <div class="font-medium">2,156.8</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Contributors</div>
-                                                <div class="font-medium">892</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Progress</div>
-                                                <div class="font-medium">67.3%</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Left</div>
-                                                <div class="font-medium text-red-600">8h 42m</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                                                <span>Fundraising Progress</span>
-                                                <span>67.3%</span>
-                                            </div>
-                                            <div class="progress-bar">
-                                                <div class="progress-fill bg-gradient-to-r from-blue-500 to-blue-600" style="width: 67.3%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <button onclick="contribute('ai')" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                                            💰 Contribute
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Live Auctions Section -->
-                            <div>
-                                <div class="flex items-center justify-between mb-6">
-                                    <h2 class="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Live Auctions</h2>
-                                    <span class="text-sm text-gray-500 bg-white/50 px-3 py-1 rounded-full">Sorted by: Time Remaining</span>
-                                </div>
-                                
-                                                                 <div class="space-y-4 max-h-96 overflow-y-auto pr-2" id="auctions-container">
-                                     <!-- MEGA Protocol -->
-                                    <div class="token-card" id="auction-auction_mega_0">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-12 h-12 bg-gradient-to-br from-orange-600 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                                    <span class="text-white font-bold text-lg">⚡</span>
-                                                </div>
-                                                <div>
-                                                    <h3 class="font-semibold text-gray-900">MEGA Protocol</h3>
-                                                    <p class="text-sm text-gray-500">$MEGA</p>
-                                                </div>
-                                            </div>
-                                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
-                                        </div>
-                                        
-                                        <!-- Bid To Win Ratio - Most Prominent Metric -->
-                                        <div class="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-purple-700 mb-1">Bid To Win Ratio</div>
-                                                <div class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent" id="bid-win-ratio-mega">0.007%</div>
-                                                <div class="text-xs text-purple-600 mt-1">Cost of min bid vs entire treasury</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                                            <div>
-                                                <div class="text-gray-500">Treasury SOL</div>
-                                                <div class="font-medium" id="treasury-mega">2,847.3</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Minimum Bid</div>
-                                                <div class="font-medium text-center" id="min-bid-mega">1,000 $MEGA<br><span class="text-xs text-gray-500">($200)</span></div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Alive</div>
-                                                <div class="font-medium text-blue-600" id="time-alive-mega">1h 26m</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Left</div>
-                                                <div class="font-medium text-red-600" id="time-auction_mega_0">2h 34m</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                                                <span>Auction Timer</span>
-                                                <span>2h 34m</span>
-                                            </div>
-                                            <div class="progress-bar">
-                                                <div class="progress-fill bg-gradient-to-r from-green-500 to-emerald-600" style="width: 78%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="text-center mb-3">
-                                            <div class="text-sm text-gray-600">Min Holding: <span class="font-semibold text-green-600">1,000 tokens</span></div>
-                                        </div>
-                                        
-                                        <button onclick="placeBid('mega')" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                                            🏆 Place Bid
-                                        </button>
-                                    </div>
-
-                                    <!-- Web3 Gaming -->
-                                    <div class="token-card" id="auction-auction_game_1">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-12 h-12 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                                    <span class="text-white font-bold text-lg">🎮</span>
-                                                </div>
-                                                <div>
-                                                    <h3 class="font-semibold text-gray-900">Web3 Gaming</h3>
-                                                    <p class="text-sm text-gray-500">$GAME</p>
-                                                </div>
-                                            </div>
-                                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
-                                        </div>
-                                        
-                                        <!-- Bid To Win Ratio - Most Prominent Metric -->
-                                        <div class="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-purple-700 mb-1">Bid To Win Ratio</div>
-                                                <div class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent" id="bid-win-ratio-game">0.009%</div>
-                                                <div class="text-xs text-purple-600 mt-1">Cost of min bid vs entire treasury</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                                            <div>
-                                                <div class="text-gray-500">Treasury SOL</div>
-                                                <div class="font-medium" id="treasury-game">1,634.7</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Minimum Bid</div>
-                                                <div class="font-medium text-center" id="min-bid-game">750 $GAME<br><span class="text-xs text-gray-500">($150)</span></div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Alive</div>
-                                                <div class="font-medium text-blue-600" id="time-alive-game">2h 48m</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Left</div>
-                                                <div class="font-medium text-red-600" id="time-auction_game_1">5h 12m</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                                                <span>Auction Timer</span>
-                                                <span>5h 12m</span>
-                                            </div>
-                                            <div class="progress-bar">
-                                                <div class="progress-fill bg-gradient-to-r from-green-500 to-emerald-600" style="width: 65%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="text-center mb-3">
-                                            <div class="text-sm text-gray-600">Min Holding: <span class="font-semibold text-green-600">750 tokens</span></div>
-                                        </div>
-                                        
-                                        <button onclick="placeBid('game')" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                                            🏆 Place Bid
-                                        </button>
-                                    </div>
-
-                                    <!-- Metaverse Token -->
-                                    <div class="token-card" id="auction-auction_meta_2">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-12 h-12 bg-gradient-to-br from-teal-600 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                                    <span class="text-white font-bold text-lg">🌐</span>
-                                                </div>
-                                                <div>
-                                                    <h3 class="font-semibold text-gray-900">Metaverse Token</h3>
-                                                    <p class="text-sm text-gray-500">$META</p>
-                                                </div>
-                                            </div>
-                                            <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
-                                        </div>
-                                        
-                                        <!-- Bid To Win Ratio - Most Prominent Metric -->
-                                        <div class="mb-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
-                                            <div class="text-center">
-                                                <div class="text-lg font-bold text-purple-700 mb-1">Bid To Win Ratio</div>
-                                                <div class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent" id="bid-win-ratio-meta">0.009%</div>
-                                                <div class="text-xs text-purple-600 mt-1">Cost of min bid vs entire treasury</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                                            <div>
-                                                <div class="text-gray-500">Treasury SOL</div>
-                                                <div class="font-medium" id="treasury-meta">3,245.1</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Minimum Bid</div>
-                                                <div class="font-medium text-center" id="min-bid-meta">1,500 $META<br><span class="text-xs text-gray-500">($300)</span></div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Alive</div>
-                                                <div class="font-medium text-blue-600" id="time-alive-meta">6h 52m</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-gray-500">Time Left</div>
-                                                <div class="font-medium text-red-600" id="time-auction_meta_2">12h 12m</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mb-4">
-                                            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                                                <span>Auction Timer</span>
-                                                <span>12h 8m</span>
-                                            </div>
-                                            <div class="progress-bar">
-                                                <div class="progress-fill bg-gradient-to-r from-green-500 to-emerald-600" style="width: 45%"></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="text-center mb-3">
-                                            <div class="text-sm text-gray-600">Min Holding: <span class="font-semibold text-green-600">1,500 tokens</span></div>
-                                        </div>
-                                        
-                                        <button onclick="placeBid('meta')" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                                            🏆 Place Bid
-                                        </button>
-                                    </div>
-                                </div>
+            
+            <!-- Testing & Development Tools -->
+            <div class="mt-8">
+                <div class="token-card">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">🧪 Testing & Development Tools</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-3">Time Controls</h4>
+                            <div class="space-y-2">
+                                <button onclick="accelerateTime(1)" class="w-full btn-secondary">⏱️ 1x Speed</button>
+                                <button onclick="accelerateTime(5)" class="w-full btn-secondary">⚡ 5x Speed</button>
+                                <button onclick="accelerateTime(10)" class="w-full btn-secondary">🚀 10x Speed</button>
+                                <button onclick="skipToAuction()" class="w-full btn-warning">⏭️ Skip to Auction</button>
                             </div>
                         </div>
-
-                                                 <!-- Demo Controls -->
-                         <div class="mt-8 card">
-                             <div class="flex items-center justify-between mb-4">
-                                 <h3 class="text-lg font-semibold text-gray-900">🎮 Demo Controls</h3>
-                                 <span class="text-sm text-gray-500">Time Acceleration: <span id="timeMultiplier">1x</span></span>
-                             </div>
-                             <div class="grid md:grid-cols-4 gap-4">
-                                 <button onclick="accelerateTime(1)" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
-                                     ⏱️ 1x Speed
-                                 </button>
-                                 <button onclick="accelerateTime(5)" class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
-                                     ⚡ 5x Speed
-                                 </button>
-                                 <button onclick="accelerateTime(10)" class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors">
-                                     🚀 10x Speed
-                                 </button>
-                                 <button onclick="accelerateTime(60)" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                                     🔥 60x Speed
-                                 </button>
-                             </div>
-                             <div class="mt-4 text-sm text-gray-600">
-                                 <p>💡 <strong>Demo Tips:</strong> Use time acceleration to see tokens automatically migrate from fundraising to auctions when their time expires!</p>
-                             </div>
-                         </div>
-
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Create Vault Section -->
-            <div id="create-vault" class="content-section">
-                <div class="p-8">
-                    <div class="max-w-7xl mx-auto">
-                        <!-- Page Header -->
-                        <div class="text-center mb-8">
-                            <h1 class="text-3xl font-bold text-gray-900 mb-2">Create Vault</h1>
-                            <p class="text-gray-600">Create your own digital token with automatic tax collection and distribution</p>
+                        
+                        <div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-3">Test Actions</h4>
+                            <div class="space-y-2">
+                                <button onclick="simulateBid()" class="w-full btn-success">💰 Simulate Bid</button>
+                                <button onclick="simulateDistribution()" class="w-full btn-success">📊 Simulate Distribution</button>
+                                <button onclick="resetPlatform()" class="w-full btn-danger">🔄 Reset Platform</button>
+                            </div>
                         </div>
-
-                        <!-- Token Creation Form -->
-                        <div class="card">
-                            <form id="vaultForm">
-                                <!-- Basic Token Details -->
-                                <div class="mb-6">
-                                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Token Details</h3>
-                                    <div class="grid md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Token Name</label>
-                                            <input type="text" id="tokenName" value="DARWIN" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., Darwin Token">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Token Symbol</label>
-                                            <input type="text" id="tokenSymbol" value="WIN" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="e.g., WIN">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Total Supply</label>
-                                            <input type="number" id="totalSupply" value="1000000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="1000000" onchange="updateAllocationSummary()">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Team Allocation -->
-                                <div class="mb-6">
-                                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Team Allocation</h3>
-                                    <div class="grid md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Team Allocation (%)</label>
-                                            <input type="number" id="teamAllocation" value="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" onchange="updateTeamAllocation()">
-                                        </div>
-                                        <div>
-                                            <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-                                                <div class="flex items-center space-x-3">
-                                                    <div class="flex-shrink-0">
-                                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                                            <span class="text-green-600 text-sm">💧</span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex-1">
-                                                        <p class="text-sm font-medium text-green-800">
-                                                            10% of supply is reserved for liquidity automatically.
-                                                        </p>
-                                                        <p class="text-xs text-green-600 mt-1">
-                                                            This ensures healthy trading and price stability
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Team Wallets Section -->
-                                <div class="mb-6 p-4 rounded-lg border border-gray-200 bg-blue-50">
-                                    <div class="flex items-center space-x-2 mb-4">
-                                        <span class="text-blue-600 text-lg">🔵</span>
-                                        <h4 class="text-lg font-semibold text-gray-900">Team Wallets</h4>
-                                    </div>
-                                    <p class="text-sm text-gray-600 mb-4">Add team wallets and their allocation percentages (sum must equal team allocation)</p>
-                                    
-                                    <div id="teamWallets" class="space-y-3 mb-4">
-                                        <div class="wallet-entry flex space-x-2">
-                                            <input type="text" value="Wallet 1" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Wallet Address">
-                                            <input type="number" value="6" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="%" onchange="updateTeamAllocation()">
-                                            <button type="button" onclick="removeWallet(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">Remove</button>
-                                        </div>
-                                        <div class="wallet-entry flex space-x-2">
-                                            <input type="text" value="Wallet 2" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Wallet Address">
-                                            <input type="number" value="4" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="%" onchange="updateTeamAllocation()">
-                                            <button type="button" onclick="removeWallet(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">Remove</button>
-                                        </div>
-                                    </div>
-                                    
-                                    <button type="button" onclick="addWallet()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">+ Add Wallet</button>
-                                    
-                                    <div id="teamAllocationSummary" class="mt-3 p-3 bg-green-100 rounded-lg text-sm text-green-700">
-                                        Team allocation: 10% (6% + 4%)
-                                    </div>
-                                </div>
-
-                                <!-- Tax Configuration -->
-                                <div class="mb-6 p-4 rounded-lg border border-gray-200 bg-purple-50">
-                                    <div class="flex items-center space-x-2 mb-4">
-                                        <span class="text-purple-600 text-lg">💜</span>
-                                        <h3 class="text-lg font-semibold text-gray-900">Tax Configuration</h3>
-                                    </div>
-                                    <div class="grid md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Total Tax Rate (%)</label>
-                                            <input type="number" id="totalTaxRate" value="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="10">
-                                            <p class="text-xs text-gray-500 mt-1">Total tax applied to buy/sell transactions</p>
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Distributor Wallet (%)</label>
-                                            <input type="number" id="distributorTax" value="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="4">
-                                            <p class="text-xs text-gray-500 mt-1">% of tax going to distributor for daily airdrops</p>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Treasury (%)</label>
-                                            <input type="number" id="treasuryTax" value="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="3">
-                                            <p class="text-xs text-gray-500 mt-1">% of tax going to treasury for Last Man Standing</p>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Creator (%)</label>
-                                            <input type="number" id="creatorTax" value="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="2">
-                                            <p class="text-xs text-gray-500 mt-1">% of tax going to creator wallet</p>
-                                        </div>
-                                    </div>
-                                    <div class="mt-4 p-3 bg-purple-100 border border-purple-200 rounded-lg">
-                                        <p class="text-xs text-purple-700" id="taxBreakdownText">
-                                            <!-- Dynamic content will be inserted here by JavaScript -->
-                                        </p>
-                                        <p class="text-xs text-purple-600 mt-1">
-                                            <strong>Note:</strong> 1% platform fee is automatically applied and cannot be modified.
-                                        </p>
-                                    </div>
-                                    <div id="taxValidationWarning" class="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg hidden">
-                                        <p class="text-xs text-red-700">
-                                            <strong>⚠️ Warning:</strong> Your tax allocation does not match your total tax rate. Please adjust the values above.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <!-- Token Requirements Configuration -->
-                                <div class="mb-6 p-4 rounded-lg border border-gray-200 bg-yellow-50">
-                                    <div class="flex items-center space-x-2 mb-4">
-                                        <span class="text-yellow-600 text-lg">🟡</span>
-                                        <h4 class="text-lg font-semibold text-gray-900">Token Requirements Configuration</h4>
-                                    </div>
-                                    <div class="grid md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Minimum Token Holding (tokens)</label>
-                                            <input type="number" id="minHoldingForAirdrop" value="1000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="1000">
-                                            <p class="text-xs text-gray-500 mt-1">Minimum tokens required to qualify for daily airdrops and auction participation</p>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Treasury Distribution Timer (days)</label>
-                                            <input type="number" id="treasuryDistributionDays" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="1">
-                                            <p class="text-xs text-gray-500 mt-1">Days before treasury gets distributed to qualified holders if no new bid</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Token Allocation Summary -->
-                                <div class="mb-6 p-4 rounded-lg border border-gray-200 bg-blue-50">
-                                    <div class="flex items-center space-x-2 mb-4">
-                                        <span class="text-blue-600 text-lg">🔵</span>
-                                        <h4 class="text-lg font-semibold text-gray-900">Token Allocation Summary</h4>
-                                    </div>
-                                    <div id="allocationSummary" class="grid md:grid-cols-4 gap-4 text-sm">
-                                        <div class="p-3 bg-white rounded-lg border">
-                                            <div class="font-medium text-gray-900" id="teamTokens">100,000</div>
-                                            <div class="text-gray-600">Team <span id="teamPercent">10</span>%</div>
-                                        </div>
-                                        <div class="p-3 bg-white rounded-lg border">
-                                            <div class="font-medium text-gray-900" id="lpTokens">100,000</div>
-                                            <div class="text-gray-600">LP <span id="lpPercent">10</span>%</div>
-                                        </div>
-                                        <div class="p-3 bg-white rounded-lg border">
-                                            <div class="font-medium text-gray-900" id="publicTokens">800,000</div>
-                                            <div class="text-gray-600">Public Sale <span id="publicPercent">80</span>%</div>
-                                        </div>
-                                        <div class="p-3 bg-white rounded-lg border">
-                                            <div class="font-medium text-gray-900" id="taxTokens">0</div>
-                                            <div class="text-gray-600">Tax Allocation <span id="taxPercent">0</span>%</div>
-                                        </div>
-                                    </div>
-                                    <div class="mt-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
-                                        <p class="text-xs text-blue-700">
-                                            <strong>Disclaimer:</strong> Token allocation percentages are calculated based on your team, LP, and tax allocations. The remaining percentage goes to public sale. Tax allocation represents the total tax rate applied to transactions.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <!-- Create Button -->
-                                <div class="text-center">
-                                    <button type="button" onclick="createVault()" class="btn-primary text-lg px-8 py-3">
-                                        Create Vault
-                                    </button>
-                                </div>
-                            </form>
+                        
+                        <div>
+                            <h4 class="text-lg font-medium text-gray-900 mb-3">Network Tools</h4>
+                            <div class="space-y-2">
+                                <button onclick="getTestSol()" class="w-full btn-primary">💧 Get Test SOL</button>
+                                <button onclick="checkBalances()" class="w-full btn-secondary">💰 Check Balances</button>
+                                <button onclick="exportData()" class="w-full btn-secondary">📤 Export Data</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -865,1340 +322,556 @@
         </div>
     </div>
 
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+
     <script>
-        // Navigation
-        function showSection(sectionId) {
-            // Hide all sections
-            document.querySelectorAll('.content-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            // Remove active class from all tabs
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected section
-            document.getElementById(sectionId).classList.add('active');
-            
-            // Add active class to clicked tab
-            event.currentTarget.classList.add('active');
-        }
-
-        // Wallet management
-        function addWallet() {
-            const container = document.getElementById('teamWallets');
-            const walletEntry = document.createElement('div');
-            walletEntry.className = 'wallet-entry flex space-x-2';
-            walletEntry.innerHTML = `
-                <input type="text" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Wallet Address">
-                <input type="number" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="%" onchange="updateTeamAllocation()">
-                <button type="button" onclick="removeWallet(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">Remove</button>
-            `;
-            container.appendChild(walletEntry);
-        }
-
-        function removeWallet(button) {
-            const walletEntry = button.parentElement;
-            walletEntry.remove();
-            updateTeamAllocation();
-        }
-
-        // Update team allocation summary
-        function updateTeamAllocation() {
-            const teamAllocation = parseInt(document.getElementById('teamAllocation').value) || 0;
-            const walletInputs = document.querySelectorAll('#teamWallets input[type="number"]');
-            let totalPercentage = 0;
-            
-            walletInputs.forEach(input => {
-                totalPercentage += parseInt(input.value) || 0;
-            });
-
-            const summary = document.getElementById('teamAllocationSummary');
-            const createVaultButton = document.querySelector('button[onclick="createVault()"]');
-            
-            if (totalPercentage === teamAllocation) {
-                summary.className = 'mt-3 p-3 bg-green-100 rounded-lg text-sm text-green-700';
-                summary.textContent = `Team allocation: ${teamAllocation}% (${Array.from(walletInputs).map(input => input.value + '%').join(' + ')})`;
-                
-                // Enable create vault button (only if tax allocation is also valid)
-                if (createVaultButton) {
-                    // Check if tax allocation is also valid
-                    const distributorTax = parseInt(document.getElementById('distributorTax').value) || 0;
-                    const treasuryTax = parseInt(document.getElementById('treasuryTax').value) || 0;
-                    const creatorTax = parseInt(document.getElementById('creatorTax').value) || 0;
-                    const platformFee = 1;
-                    const totalTaxRate = parseInt(document.getElementById('totalTaxRate').value) || 0;
-                    const totalAllocated = distributorTax + treasuryTax + creatorTax + platformFee;
-                    
-                    if (totalAllocated === totalTaxRate) {
-                        createVaultButton.disabled = false;
-                        createVaultButton.className = 'btn-primary text-lg px-8 py-3';
-                    }
-                }
-            } else {
-                summary.className = 'mt-3 p-3 bg-red-100 rounded-lg text-sm text-red-700';
-                summary.textContent = `Team allocation mismatch: ${totalPercentage}% ≠ ${teamAllocation}%`;
-                
-                // Disable create vault button
-                if (createVaultButton) {
-                    createVaultButton.disabled = true;
-                    createVaultButton.className = 'btn-primary text-lg px-8 py-3 opacity-50 cursor-not-allowed';
-                }
-            }
-            
-            updateAllocationSummary();
-        }
-
-        // Update allocation summary
-        function updateAllocationSummary() {
-            const totalSupply = parseInt(document.getElementById('totalSupply').value) || 1000000;
-            const teamAllocation = parseInt(document.getElementById('teamAllocation').value) || 0;
-            const lpAllocation = 10; // Fixed LP allocation
-            const totalTaxRate = parseInt(document.getElementById('totalTaxRate').value) || 0;
-            
-            // Calculate public sale percentage (remaining after team, LP, and tax allocations)
-            const publicSale = 100 - teamAllocation - lpAllocation - totalTaxRate;
-
-            // Update individual elements instead of replacing entire HTML
-            const teamTokensElement = document.getElementById('teamTokens');
-            const teamPercentElement = document.getElementById('teamPercent');
-            const lpTokensElement = document.getElementById('lpTokens');
-            const lpPercentElement = document.getElementById('lpPercent');
-            const publicTokensElement = document.getElementById('publicTokens');
-            const publicPercentElement = document.getElementById('publicPercent');
-            const taxTokensElement = document.getElementById('taxTokens');
-            const taxPercentElement = document.getElementById('taxPercent');
-
-            if (teamTokensElement) teamTokensElement.textContent = (totalSupply * teamAllocation / 100).toLocaleString();
-            if (teamPercentElement) teamPercentElement.textContent = teamAllocation;
-            if (lpTokensElement) lpTokensElement.textContent = (totalSupply * lpAllocation / 100).toLocaleString();
-            if (lpPercentElement) lpPercentElement.textContent = lpAllocation;
-            if (publicTokensElement) publicTokensElement.textContent = (totalSupply * publicSale / 100).toLocaleString();
-            if (publicPercentElement) publicPercentElement.textContent = publicSale;
-            if (taxTokensElement) taxTokensElement.textContent = (totalSupply * totalTaxRate / 100).toLocaleString();
-            if (taxPercentElement) taxPercentElement.textContent = totalTaxRate;
-        }
-
-        // Create vault function
-        function createVault() {
-            const tokenName = document.getElementById('tokenName').value;
-            const tokenSymbol = document.getElementById('tokenSymbol').value;
-            const totalSupply = document.getElementById('totalSupply').value;
-            const teamAllocation = document.getElementById('teamAllocation').value;
-            const totalTaxRate = document.getElementById('totalTaxRate').value;
-            const distributorTax = document.getElementById('distributorTax').value;
-            const treasuryTax = document.getElementById('treasuryTax').value;
-            const creatorTax = document.getElementById('creatorTax').value;
-            const minHoldingForAirdrop = document.getElementById('minHoldingForAirdrop').value;
-            const treasuryDistributionDays = document.getElementById('treasuryDistributionDays').value;
-
-            if (!tokenName || !tokenSymbol || !totalSupply || !teamAllocation || !totalTaxRate || !distributorTax || !treasuryTax || !creatorTax || !minHoldingForAirdrop || !treasuryDistributionDays) {
-                alert('Please fill in all required fields');
-                return;
-            }
-
-            // Validate tax allocation - same logic as team allocation
-            const platformFee = 1; // Fixed platform fee
-            const totalAllocated = parseInt(distributorTax) + parseInt(treasuryTax) + parseInt(creatorTax) + platformFee;
-            const totalTax = parseInt(totalTaxRate);
-            
-            if (totalAllocated !== totalTax) {
-                alert(`Tax allocation mismatch! Total allocated (${totalAllocated}%) must equal total tax rate (${totalTax}%).\n\nBreakdown: Platform (${platformFee}%) + Distributor (${distributorTax}%) + Treasury (${treasuryTax}%) + Creator (${creatorTax}%) = ${totalAllocated}%\n\nPlease adjust your tax allocation to match your total tax rate.`);
-                return;
-            }
-
-            // Validate team allocation
-            const walletInputs = document.querySelectorAll('#teamWallets input[type="number"]');
-            let totalPercentage = 0;
-            walletInputs.forEach(input => {
-                totalPercentage += parseInt(input.value) || 0;
-            });
-
-            if (totalPercentage !== parseInt(teamAllocation)) {
-                alert('Team wallet allocation percentages must equal the total team allocation');
-                return;
-            }
-
-            // Simulate vault creation and redirect to WinningView
-            alert(`Vault "${tokenName}" (${tokenSymbol}) created successfully!\n\nRedirecting to WinningView to see your active fundraiser...`);
-            
-            // Add the new token to the fundraising section
-            addNewTokenToFundraising(tokenName, tokenSymbol, minHoldingForAirdrop, treasuryDistributionDays, totalTaxRate, distributorTax, treasuryTax, creatorTax);
-            
-            // Switch to WinningView tab
-            setTimeout(() => {
-                // Remove active class from all tabs
-                document.querySelectorAll('.nav-tab').forEach(tab => {
-                    tab.classList.remove('active');
-                });
-                
-                // Hide all sections
-                document.querySelectorAll('.content-section').forEach(section => {
-                    section.classList.remove('active');
-                });
-                
-                // Show WinningView section
-                document.getElementById('winningview').classList.add('active');
-                
-                // Add active class to WinningView tab (first nav tab)
-                const winningViewTab = document.querySelector('.nav-tab');
-                if (winningViewTab) {
-                    winningViewTab.classList.add('active');
-                }
-                
-                // Scroll to top of the page
-                window.scrollTo(0, 0);
-            }, 100);
-        }
-
-        // WinningView functions
-        function viewDetails(tokenId) {
-            alert(`Viewing details for ${tokenId} token. In a real app, this would show detailed project information, charts, and contribution history.`);
-        }
-
-        function placeBid(tokenId) {
-            // Find the auction token to get its minimum token holding requirement
-            const auctionToken = activeTokens.find(token => 
-                token.type === 'auction' && token.symbolLower === tokenId
-            );
-            
-            if (!auctionToken) {
-                // Check if it's a fundraising token that hasn't started auction yet
-                const fundraisingToken = activeTokens.find(token => 
-                    token.type === 'fundraising' && token.symbolLower === tokenId
-                );
-                
-                if (fundraisingToken) {
-                    showNotification(`❌ ${tokenId.toUpperCase()} is still in fundraising phase. Auction will start automatically when the 24-hour fundraising period ends.`, 'error');
-                } else {
-                    showNotification(`❌ Could not find token ${tokenId.toUpperCase()}. Make sure the token exists and is in the auction phase.`, 'error');
-                }
-                return;
-            }
-            
-            const minTokenHolding = auctionToken.minHoldingForAirdrop;
-            
-            const bidAmount = prompt(`Enter your bid amount for ${tokenId.toUpperCase()} (in SOL):\nMinimum token holding required: ${minTokenHolding.toLocaleString()} tokens`);
-            if (bidAmount && !isNaN(bidAmount)) {
-                const solAmount = parseFloat(bidAmount);
-                
-                // Calculate how many tokens this SOL amount would buy (simplified calculation)
-                const totalSupply = 1000000; // 1M tokens
-                const publicSaleTokens = totalSupply * 0.8; // 80% for public sale
-                const estimatedTokensReceived = Math.floor((solAmount / 1000) * publicSaleTokens); // Rough estimate: 1 SOL ≈ 1000 tokens
-                
-                // Check if the bid would result in enough tokens to meet minimum holding requirement
-                if (estimatedTokensReceived < minTokenHolding) {
-                    showNotification(`❌ Your bid of ${solAmount} SOL would only get ~${estimatedTokensReceived.toLocaleString()} tokens. Minimum required: ${minTokenHolding.toLocaleString()} tokens`, 'error');
-                    return;
-                }
-                
-                // Find the auction card and update its values
-                const auctionCard = findAuctionCardBySymbol(tokenId);
-                if (auctionCard) {
-                    // Get treasury SOL
-                    const treasuryElement = auctionCard.querySelector('.grid.grid-cols-4 div:nth-child(1) .font-medium');
-                    const treasurySOL = parseFloat(treasuryElement.textContent.replace(',', '')) || 0;
-                    
-                    // Calculate tokens received based on pro-rata distribution
-                    const totalSupply = 1000000; // 1M tokens
-                    const publicSaleTokens = totalSupply * 0.8; // 80% for public sale
-                    const tokensReceived = (solAmount / (treasurySOL + solAmount)) * publicSaleTokens;
-                    
-                    // Show confirmation dialog
-                    const confirmMessage = `Confirm your bid for ${tokenId.toUpperCase()}:\n\n` +
-                        `SOL to bid: ${solAmount} SOL\n` +
-                        `Tokens you'll receive: ${tokensReceived.toFixed(0)} tokens\n` +
-                        `Your share: ${((solAmount / (treasurySOL + solAmount)) * 100).toFixed(2)}% of treasury\n\n` +
-                        `This bid will reset the auction timer!\n\n` +
-                        `Do you want to proceed?`;
-                    
-                    if (confirm(confirmMessage)) {
-                        // Update treasury SOL (add the bid amount)
-                        const newTreasurySOL = treasurySOL + solAmount;
-                        treasuryElement.textContent = newTreasurySOL.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-                        
-                        // Update the active token data
-                        auctionToken.treasury = newTreasurySOL;
-                        
-                        // Reset timer for this auction (Last Man Standing mechanic)
-                        resetAuctionTimer(tokenId);
-                        
-                        // Show success notification
-                        showNotification(`🏆 Successfully bid ${solAmount} SOL for ${tokenId.toUpperCase()}! You'll receive ${tokensReceived.toFixed(0)} tokens. Timer reset!`, 'success');
-                    }
-                } else {
-                    showNotification(`❌ Could not find auction card for ${tokenId.toUpperCase()}`, 'error');
-                }
-            }
-        }
-
-        function resetAuctionTimer(tokenId) {
-            // Find the auction token in activeTokens array
-            const auctionToken = activeTokens.find(token => 
-                token.type === 'auction' && token.symbolLower === tokenId
-            );
-            
-            if (auctionToken) {
-                // Reset timer to 2 hours (120 minutes)
-                auctionToken.timeRemaining = 120;
-                
-                // Update the display
-                const timeElement = document.getElementById(`time-${auctionToken.id}`);
-                if (timeElement) {
-                    timeElement.textContent = '2h 00m';
-                    timeElement.className = 'font-medium text-red-600';
-                }
-                
-                // Update the progress bar timer display
-                const auctionCard = findAuctionCardBySymbol(tokenId);
-                if (auctionCard) {
-                    const progressTimerElement = auctionCard.querySelector('.flex.justify-between.text-xs.text-gray-500.mb-2 span:last-child');
-                    if (progressTimerElement) {
-                        progressTimerElement.textContent = '2h 00m';
-                    }
-                }
-                
-                showNotification(`⏰ Timer reset for ${tokenId.toUpperCase()} auction! New time: 2 hours`, 'info');
-            }
-        }
-
-        function contribute(tokenId) {
-            const contribution = prompt(`Enter your contribution amount for ${tokenId.toUpperCase()} (in SOL):`);
-            if (contribution && !isNaN(contribution)) {
-                const solAmount = parseFloat(contribution);
-                
-                // Find the token card and update its values
-                const tokenCard = findTokenCardBySymbol(tokenId);
-                if (tokenCard) {
-                    // Get current raised SOL
-                    const raisedElement = tokenCard.querySelector('.grid.grid-cols-4 .font-medium');
-                    const currentRaised = parseFloat(raisedElement.textContent.replace(',', '')) || 0;
-                    const newRaised = currentRaised + solAmount;
-                    
-                    // Calculate tokens received based on pro-rata distribution (80% of total supply)
-                    const totalSupply = 1000000; // 1M tokens
-                    const publicSaleTokens = totalSupply * 0.8; // 80% for public sale
-                    const tokensReceived = (solAmount / newRaised) * publicSaleTokens;
-                    
-                    // Show confirmation dialog
-                    const confirmMessage = `Confirm your contribution to ${tokenId.toUpperCase()}:\n\n` +
-                        `SOL to contribute: ${solAmount} SOL\n` +
-                        `Tokens you'll receive: ${tokensReceived.toFixed(0)} tokens\n` +
-                        `Your share: ${((solAmount / newRaised) * 100).toFixed(2)}% of public sale tokens (pro-rata)\n\n` +
-                        `Tokens will be airdropped when auction starts.\n\n` +
-                        `Do you want to proceed?`;
-                    
-                    if (confirm(confirmMessage)) {
-                        // Update raised SOL
-                        raisedElement.textContent = newRaised.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-                        
-                        // Update contributors count
-                        const contributorsElement = tokenCard.querySelector('.grid.grid-cols-4 div:nth-child(2) .font-medium');
-                        const currentContributors = parseInt(contributorsElement.textContent) || 0;
-                        contributorsElement.textContent = currentContributors + 1;
-                        
-                        // Update progress percentage (assuming 3000 SOL target)
-                        const progressElement = tokenCard.querySelector('.grid.grid-cols-4 div:nth-child(3) .font-medium');
-                        const progressPercent = Math.min((newRaised / 3000) * 100, 100);
-                        progressElement.textContent = progressPercent.toFixed(1) + '%';
-                        
-                        // Update progress bar
-                        const progressBar = tokenCard.querySelector('.progress-fill');
-                        if (progressBar) {
-                            progressBar.style.width = progressPercent.toFixed(1) + '%';
-                        }
-                        
-                        // Update progress text
-                        const progressText = tokenCard.querySelector('.flex.justify-between.text-xs.text-gray-500.mb-2 span:last-child');
-                        if (progressText) {
-                            progressText.textContent = progressPercent.toFixed(1) + '%';
-                        }
-                        
-                        // Update the active token data
-                        const fundraisingToken = activeTokens.find(token => 
-                            token.type === 'fundraising' && token.symbolLower === tokenId
-                        );
-                        if (fundraisingToken) {
-                            fundraisingToken.raised = newRaised;
-                            fundraisingToken.contributors = currentContributors + 1;
-                            fundraisingToken.progress = progressPercent;
-                        }
-                        
-
-                        
-                        // Show success notification with clear pro-rata explanation and token info
-                        const sharePercentage = ((solAmount / newRaised) * 100).toFixed(2);
-                        const tokenInfo = window.deployedTokens && window.deployedTokens[tokenId] ? 
-                            `\n\nToken Mint: ${window.deployedTokens[tokenId].mintAddress}\nImport this address in Phantom to see your tokens!` : '';
-                        showNotification(`✅ Successfully contributed ${solAmount} SOL to ${tokenId.toUpperCase()}! Your share: ${sharePercentage}% of public sale tokens (pro-rata distribution).${tokenInfo}`, 'success');
-                    }
-                } else {
-                    showNotification(`❌ Could not find token ${tokenId.toUpperCase()}`, 'error');
-                }
-            }
-        }
-
-
-
-        // Connect wallet function
-        function connectWallet() {
-            // Simulate wallet connection
-            const walletButton = document.querySelector('button[onclick="connectWallet()"]');
-            if (walletButton) {
-                walletButton.innerHTML = '<span class="mr-2">✅</span>Connected (Demo)';
-                walletButton.className = 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-lg px-6 py-3';
-            }
-            showNotification('🔗 Wallet connected! (Demo mode - Phantom integration ready)', 'success');
-        }
-        
-        // Global variables for time management
-        let timeMultiplier = 1;
-        let activeTokens = [];
-        let timeInterval;
-        
-        // Store deployed token information
-        window.deployedTokens = {};
-        
-        
-
-        // Add new token to fundraising section
-        function addNewTokenToFundraising(tokenName, tokenSymbol, minHoldingForAirdrop, treasuryDistributionDays, totalTaxRate, distributorTax, treasuryTax, creatorTax) {
-            const fundraisingSection = document.querySelector('#fundraising-container');
-            if (fundraisingSection) {
-                const tokenId = `${tokenSymbol.toLowerCase()}_${Date.now()}`;
-                const newTokenCard = document.createElement('div');
-                newTokenCard.className = 'token-card';
-                newTokenCard.id = tokenId;
-                newTokenCard.innerHTML = `
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg">
-                                <span class="text-white font-bold text-lg">${tokenSymbol.charAt(0)}</span>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">${tokenName}</h3>
-                                <p class="text-sm text-gray-500">$${tokenSymbol}</p>
-                            </div>
-                        </div>
-                        <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">New</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                        <div>
-                            <div class="text-gray-500">Raised SOL</div>
-                            <div class="font-medium">0.0</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Contributors</div>
-                            <div class="font-medium">0</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Progress</div>
-                            <div class="font-medium">0%</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Time Left</div>
-                            <div class="font-medium text-red-600" id="time-${tokenId}">24h 00m</div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <div class="flex justify-between text-xs text-gray-500 mb-2">
-                            <span>Fundraising Progress</span>
-                            <span>0%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill bg-gradient-to-r from-blue-500 to-blue-600" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    
-                                            <button onclick="contribute('${tokenSymbol.toLowerCase()}')" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                            💰 Contribute
-                        </button>
-                `;
-                
-                // Insert the new token at the top of the fundraising section
-                fundraisingSection.insertBefore(newTokenCard, fundraisingSection.firstChild);
-                
-                // Add token to active tokens list with 24 hours remaining
-                activeTokens.push({
-                    id: tokenId,
-                    name: tokenName,
-                    symbol: tokenSymbol,
-                    timeRemaining: 24 * 60, // 24 hours in minutes
-                    type: 'fundraising',
-                    raised: 0,
-                    contributors: 0,
-                    progress: 0,
-                    symbolLower: tokenSymbol.toLowerCase(), // Add for easier lookup
-                    minHoldingForAirdrop: parseInt(minHoldingForAirdrop),
-                    treasuryDistributionDays: parseInt(treasuryDistributionDays),
-                    totalTaxRate: parseInt(totalTaxRate),
-                    distributorTax: parseInt(distributorTax),
-                    treasuryTax: parseInt(treasuryTax),
-                    creatorTax: parseInt(creatorTax)
-                });
-            }
-        }
-
-        // Time acceleration function
-        function accelerateTime(multiplier) {
-            timeMultiplier = multiplier;
-            document.getElementById('timeMultiplier').textContent = multiplier + 'x';
-            
-            // Clear existing interval
-            if (timeInterval) {
-                clearInterval(timeInterval);
-            }
-            
-            // Start new interval with accelerated time
-            timeInterval = setInterval(() => {
-                updateAllTokens();
-            }, 1000 / multiplier); // Update more frequently for faster time
-        }
-
-        // Update all tokens
-        function updateAllTokens() {
-            activeTokens.forEach((token, index) => {
-                if (token.timeRemaining > 0) {
-                    token.timeRemaining -= (1 / 60) * timeMultiplier; // Decrease by 1 minute per second * multiplier
-                    
-                    // Update time alive for auction tokens
-                    if (token.type === 'auction') {
-                        token.timeAlive += (1 / 60) * timeMultiplier; // Increase by 1 minute per second * multiplier
-                        
-                        // Update time alive display
-                        const timeAliveElement = document.getElementById(`time-alive-${token.symbol.toLowerCase()}`);
-                        if (timeAliveElement) {
-                            const aliveHours = Math.floor(token.timeAlive / 60);
-                            const aliveMinutes = Math.floor(token.timeAlive % 60);
-                            timeAliveElement.textContent = `${aliveHours}h ${aliveMinutes.toString().padStart(2, '0')}m`;
-                        }
-                    }
-                    
-                    // Update display
-                    const timeElement = document.getElementById(`time-${token.id}`);
-                    if (timeElement) {
-                        const hours = Math.floor(token.timeRemaining / 60);
-                        const minutes = Math.floor(token.timeRemaining % 60);
-                        timeElement.textContent = `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-                        
-                        // Change color when time is running low
-                        if (token.timeRemaining < 60) { // Less than 1 hour
-                            timeElement.className = 'font-medium text-orange-600';
-                        }
-                        if (token.timeRemaining < 10) { // Less than 10 minutes
-                            timeElement.className = 'font-medium text-red-600';
-                        }
-                    }
-                    
-                    // Check if fundraising period is over
-                    if (token.timeRemaining <= 0 && token.type === 'fundraising') {
-                        migrateToAuction(token, index);
-                    }
-                    
-                    // Check if auction period is over
-                    if (token.timeRemaining <= 0 && token.type === 'auction') {
-                        // Remove auction token when time expires
-                        const auctionCard = document.getElementById(`auction-${token.id}`);
-                        if (auctionCard) {
-                            auctionCard.remove();
-                            showNotification(`🏆 Auction ended for ${token.name} ($${token.symbol})!`, 'success');
-                        }
-                        // Remove from active tokens
-                        activeTokens.splice(index, 1);
-                    }
-                }
-            });
-        }
-
-        // Migrate token from fundraising to auction
-        function migrateToAuction(token, index) {
-            // Remove from fundraising
-            const fundraisingCard = document.getElementById(token.id);
-            if (fundraisingCard) {
-                fundraisingCard.remove();
-            }
-            
-            // Add to auctions
-            const auctionsSection = document.querySelector('#auctions-container');
-            if (auctionsSection) {
-                const auctionCard = document.createElement('div');
-                auctionCard.className = 'token-card';
-                auctionCard.id = `auction-${token.id}`;
-                
-                // Use actual fundraising data
-                const treasurySOL = token.raised || 0;
-                const minBid = token.minHoldingForAirdrop || 1000;
-                const auctionTime = 2; // 2 hours for auction
-                
-                // Calculate Bid To Win Ratio
-                const solPriceUSD = 200;
-                const treasuryValueUSD = treasurySOL * solPriceUSD;
-                const minBidSOL = minBid / 1000; // Rough estimate
-                const minBidValueUSD = minBidSOL * solPriceUSD;
-                const bidToWinRatio = Math.round(treasuryValueUSD / minBidValueUSD);
-                
-                auctionCard.innerHTML = `
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-green-600 to-green-700 rounded-2xl flex items-center justify-center shadow-lg">
-                                <span class="text-white font-bold text-lg">${token.symbol.charAt(0)}</span>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-900">${token.name}</h3>
-                                <p class="text-sm text-gray-500">$${token.symbol}</p>
-                            </div>
-                        </div>
-                        <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Live Auction</span>
-                    </div>
-                    
-                    <div class="grid grid-cols-4 gap-4 text-sm mb-3">
-                        <div>
-                            <div class="text-gray-500">Treasury SOL</div>
-                            <div class="font-medium">${treasurySOL.toFixed(1)}</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Bidders</div>
-                            <div class="font-medium">0</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Time Left</div>
-                            <div class="font-medium text-red-600" id="time-auction_${token.symbol.toLowerCase()}">2h 00m</div>
-                        </div>
-                        <div>
-                            <div class="text-gray-500">Time Alive</div>
-                            <div class="font-medium text-blue-600" id="time-alive-${token.symbol.toLowerCase()}">0h 00m</div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <div class="flex justify-between text-xs text-gray-500 mb-2">
-                            <span>Auction Progress</span>
-                            <span>2h 00m</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill bg-gradient-to-r from-green-500 to-green-600" style="width: 100%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-2 mb-4">
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-green-600 mb-1" id="bid-win-ratio-${token.symbol.toLowerCase()}">${bidToWinRatio}x</div>
-                            <div class="text-xs text-gray-500">Bid To Win Ratio</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-sm font-medium text-gray-700">Minimum Bid: ${minBid.toLocaleString()} ${token.symbol}</div>
-                            <div class="text-xs text-gray-500">(~${(minBid / 1000).toFixed(1)} SOL ≈ $${((minBid / 1000) * 200).toFixed(0)})</div>
-                        </div>
-                    </div>
-                    
-                    <button onclick="placeBid('${token.symbol.toLowerCase()}')" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5">
-                        🏆 Place Bid
-                    </button>
-                `;
-                
-                // Insert at the top of auctions
-                auctionsSection.insertBefore(auctionCard, auctionsSection.firstChild);
-                
-                // Update token data
-                token.type = 'auction';
-                token.timeRemaining = auctionTime * 60; // 2 hours in minutes
-                token.timeAlive = 0; // Start at 0 minutes
-                token.treasury = treasurySOL;
-                token.currentBid = 0;
-                token.bidders = 0;
-                token.id = `auction-${token.id}`;
-                
-                // Show migration notification
-                showNotification(`🚀 ${token.name} ($${token.symbol}) has completed fundraising and moved to auction! Treasury: ${treasurySOL.toFixed(1)} SOL`, 'success');
-            }
-        }
-
-        // Show notification
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
-            
-            if (type === 'success') {
-                notification.className += ' bg-green-500 text-white';
-            } else if (type === 'error') {
-                notification.className += ' bg-red-500 text-white';
-            } else {
-                notification.className += ' bg-blue-500 text-white';
-            }
-            
-            notification.innerHTML = `
-                <div class="flex items-center space-x-2">
-                    <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-                    <span>${message}</span>
-                </div>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Animate in
-            setTimeout(() => {
-                notification.classList.remove('translate-x-full');
-            }, 100);
-            
-            // Remove after 3 seconds
-            setTimeout(() => {
-                notification.classList.add('translate-x-full');
-                setTimeout(() => {
-                    document.body.removeChild(notification);
-                }, 300);
-            }, 3000);
-        }
-
-        // Toggle pro-rata info tooltip
-        function toggleProRataInfo() {
-            const tooltip = document.getElementById('proRataTooltip');
-            if (tooltip) {
-                const isVisible = tooltip.classList.contains('opacity-100');
-                if (isVisible) {
-                    tooltip.classList.remove('opacity-100', 'pointer-events-auto');
-                    tooltip.classList.add('opacity-0', 'pointer-events-none');
-                } else {
-                    tooltip.classList.remove('opacity-0', 'pointer-events-none');
-                    tooltip.classList.add('opacity-100', 'pointer-events-auto');
-                }
-            }
-        }
-
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            updateTeamAllocation();
-            updateAllocationSummary();
-            
-            // Initialize existing tokens with demo data
-            initializeExistingTokens();
-            
-            // Start time system
-            accelerateTime(1);
-        });
-
-        // Helper function to find token card by symbol
-        function findTokenCardBySymbol(symbol) {
-            const fundraisingContainer = document.getElementById('fundraising-container');
-            if (fundraisingContainer) {
-                const cards = fundraisingContainer.querySelectorAll('.token-card');
-                for (let card of cards) {
-                    const symbolElement = card.querySelector('p.text-sm.text-gray-500');
-                    if (symbolElement && symbolElement.textContent.includes(symbol.toUpperCase())) {
-                        return card;
-                    }
-                }
-            }
-            return null;
-        }
-
-        // Helper function to find auction card by symbol
-        function findAuctionCardBySymbol(symbol) {
-            const auctionsContainer = document.getElementById('auctions-container');
-            if (auctionsContainer) {
-                const cards = auctionsContainer.querySelectorAll('.token-card');
-                for (let card of cards) {
-                    const symbolElement = card.querySelector('p.text-sm.text-gray-500');
-                    if (symbolElement && symbolElement.textContent.includes(symbol.toUpperCase())) {
-                        return card;
-                    }
-                }
-            }
-            return null;
-        }
-
-
-
-        // Initialize existing tokens with demo data
-        function initializeExistingTokens() {
-            // Initialize fundraising tokens
-            const existingFundraisingTokens = [
-                { name: 'DARWIN Token', symbol: 'WIN', timeRemaining: 18 * 60 + 23, raised: 1247.5, contributors: 1234, progress: 45.2 },
-                { name: 'DeFi Master', symbol: 'DEFI', timeRemaining: 22 * 60 + 15, raised: 847.2, contributors: 567, progress: 23.8 },
-                { name: 'AI Protocol', symbol: 'AIP', timeRemaining: 8 * 60 + 42, raised: 2156.8, contributors: 892, progress: 67.3 }
-            ];
-            
-            existingFundraisingTokens.forEach((token, index) => {
-                const tokenId = `existing_${token.symbol.toLowerCase()}_${index}`;
-                activeTokens.push({
-                    id: tokenId,
-                    name: token.name,
-                    symbol: token.symbol,
-                    timeRemaining: token.timeRemaining,
-                    type: 'fundraising',
-                    raised: token.raised,
-                    contributors: token.contributors,
-                    progress: token.progress,
-                    symbolLower: token.symbol.toLowerCase()
-                });
-                
-                // Find and update the time display for existing fundraising tokens
-                const fundraisingContainer = document.getElementById('fundraising-container');
-                if (fundraisingContainer) {
-                    const cards = fundraisingContainer.querySelectorAll('.token-card');
-                    if (cards[index]) {
-                        const timeElement = cards[index].querySelector('.font-medium.text-red-600');
-                        if (timeElement) {
-                            timeElement.id = `time-${tokenId}`;
-                            // Set initial time display
-                            const hours = Math.floor(token.timeRemaining / 60);
-                            const minutes = Math.floor(token.timeRemaining % 60);
-                            timeElement.textContent = `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-                        }
-                    }
-                }
-            });
-            
-            // Initialize auction tokens
-            const existingAuctionTokens = [
-                { name: 'MEGA Protocol', symbol: 'MEGA', timeRemaining: 2 * 60 + 34, timeAlive: 1 * 60 + 26, treasury: 2847.3, currentBid: 1500, bidders: 23, minHoldingForAirdrop: 1000 },
-                { name: 'Web3 Gaming', symbol: 'GAME', timeRemaining: 5 * 60 + 12, timeAlive: 2 * 60 + 48, treasury: 1634.7, currentBid: 850, bidders: 15, minHoldingForAirdrop: 750 },
-                { name: 'Metaverse Token', symbol: 'META', timeRemaining: 12 * 60 + 8, timeAlive: 6 * 60 + 52, treasury: 3245.1, currentBid: 2100, bidders: 31, minHoldingForAirdrop: 1500 }
-            ];
-            
-            existingAuctionTokens.forEach((token, index) => {
-                const tokenId = `auction_${token.symbol.toLowerCase()}_${index}`;
-                activeTokens.push({
-                    id: tokenId,
-                    name: token.name,
-                    symbol: token.symbol,
-                    timeRemaining: token.timeRemaining,
-                    timeAlive: token.timeAlive,
-                    type: 'auction',
-                    treasury: token.treasury,
-                    currentBid: token.currentBid,
-                    bidders: token.bidders,
-                    minHoldingForAirdrop: token.minHoldingForAirdrop,
-                    symbolLower: token.symbol.toLowerCase()
-                });
-                
-                // Find and update the time display for existing auction tokens
-                const auctionsContainer = document.getElementById('auctions-container');
-                if (auctionsContainer) {
-                    const cards = auctionsContainer.querySelectorAll('.token-card');
-                    if (cards[index]) {
-                        const timeElement = cards[index].querySelector('.font-medium.text-red-600');
-                        if (timeElement) {
-                            timeElement.id = `time-${tokenId}`;
-                            // Set initial time display
-                            const hours = Math.floor(token.timeRemaining / 60);
-                            const minutes = Math.floor(token.timeRemaining % 60);
-                            timeElement.textContent = `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-                        }
-                        
-                        // Set initial time alive display
-                        const timeAliveElement = cards[index].querySelector('.font-medium.text-blue-600');
-                        if (timeAliveElement) {
-                            timeAliveElement.id = `time-alive-${token.symbol.toLowerCase()}`;
-                            // Set initial time alive display
-                            const aliveHours = Math.floor(token.timeAlive / 60);
-                            const aliveMinutes = Math.floor(token.timeAlive % 60);
-                            timeAliveElement.textContent = `${aliveHours}h ${aliveMinutes.toString().padStart(2, '0')}m`;
-                        }
-                    }
-                }
-            });
-        }
-
-        // Calculate minimum bid in SOL based on token holding requirement
-        function calculateMinimumBid(minTokenHolding) {
-            // Simplified calculation: 1 SOL ≈ 1000 tokens
-            // This is a rough estimate based on the existing logic in placeBid function
-            return (minTokenHolding / 1000).toFixed(1);
-        }
-
-        // Calculate and update Bid To Win Ratio for auction tokens
-        function calculateBidToWinRatio(treasurySOL, minBidTokens, tokenSymbol) {
-            // Assume SOL price is $200 as specified
-            const solPriceUSD = 200;
-            
-            // Calculate treasury value in USD
-            const treasuryValueUSD = treasurySOL * solPriceUSD;
-            
-            // For the minimum bid, we need to estimate the USD value
-            // Since bids are in native tokens, we'll use a rough estimate
-            // Assuming 1 SOL ≈ 1000 tokens (based on existing logic)
-            const minBidSOL = minBidTokens / 1000;
-            const minBidValueUSD = minBidSOL * solPriceUSD;
-            
-            // Calculate ratio: (treasury value) / (min bid value) to get the multiple
-            const ratio = treasuryValueUSD / minBidValueUSD;
-            
-            return Math.round(ratio);
-        }
-
-        // Update Bid To Win Ratio display for all auction tokens
-        function updateBidToWinRatios() {
-            const auctionData = [
-                { symbol: 'mega', treasury: 2847.3, minBid: 1000, tokenSymbol: 'MEGA' },
-                { symbol: 'game', treasury: 1634.7, minBid: 750, tokenSymbol: 'GAME' },
-                { symbol: 'meta', treasury: 3245.1, minBid: 1500, tokenSymbol: 'META' }
-            ];
-            
-            auctionData.forEach(data => {
-                const ratioElement = document.getElementById(`bid-win-ratio-${data.symbol}`);
-                const minBidElement = document.getElementById(`min-bid-${data.symbol}`);
-                
-                if (ratioElement) {
-                    const ratio = calculateBidToWinRatio(data.treasury, data.minBid, data.tokenSymbol);
-                    ratioElement.textContent = `${ratio}x`;
-                }
-                
-                // Update minimum bid to include USD cost
-                if (minBidElement) {
-                    const solPriceUSD = 200;
-                    const minBidSOL = data.minBid / 1000;
-                    const minBidValueUSD = minBidSOL * solPriceUSD;
-                    minBidElement.innerHTML = `${data.minBid.toLocaleString()} $${data.tokenSymbol}<br><span class="text-xs text-gray-500">($${minBidValueUSD.toFixed(0)})</span>`;
-                }
-            });
-        }
-
-        // Tax calculation functions
-        function updateTaxBreakdown() {
-            console.log('updateTaxBreakdown called');
-            const distributorTax = parseInt(document.getElementById('distributorTax').value) || 0;
-            const treasuryTax = parseInt(document.getElementById('treasuryTax').value) || 0;
-            const creatorTax = parseInt(document.getElementById('creatorTax').value) || 0;
-            const platformFee = 1; // Fixed platform fee
-            const totalTaxRate = parseInt(document.getElementById('totalTaxRate').value) || 0;
-            
-            const totalAllocated = distributorTax + treasuryTax + creatorTax + platformFee;
-            
-            console.log('Tax values:', { totalTaxRate, distributorTax, treasuryTax, creatorTax, totalAllocated });
-            
-            // Update allocation summary when tax changes
-            updateAllocationSummary();
-            
-            // Get the dynamic breakdown element
-            const breakdownElement = document.getElementById('taxBreakdownText');
-            const totalTaxRateInput = document.getElementById('totalTaxRate');
-            const createVaultButton = document.querySelector('button[onclick="createVault()"]');
-            const taxValidationWarning = document.getElementById('taxValidationWarning');
-            const breakdownContainer = breakdownElement ? breakdownElement.parentElement : null;
-            
-            console.log('Elements found:', { 
-                breakdownElement: !!breakdownElement, 
-                breakdownContainer: !!breakdownContainer,
-                totalTaxRateInput: !!totalTaxRateInput, 
-                createVaultButton: !!createVaultButton, 
-                taxValidationWarning: !!taxValidationWarning 
-            });
-            
-            if (breakdownElement && breakdownContainer) {
-                if (totalAllocated === totalTaxRate) {
-                    // Valid allocation - green background
-                    breakdownContainer.className = 'mt-4 p-3 bg-green-100 border border-green-200 rounded-lg';
-                    breakdownElement.className = 'text-xs text-green-700';
-                    breakdownElement.innerHTML = `<strong>✓ Tax Allocation Complete:</strong> Platform (1%) + Distributor (${distributorTax}%) + Treasury (${treasuryTax}%) + Creator (${creatorTax}%) = <strong>${totalAllocated}%</strong>`;
-                    
-                    // Reset input border to normal
-                    if (totalTaxRateInput) {
-                        totalTaxRateInput.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent';
-                    }
-                    
-                    // Hide warning message
-                    if (taxValidationWarning) {
-                        taxValidationWarning.classList.add('hidden');
-                    }
-                    
-                    // Enable create vault button (only if team allocation is also valid)
-                    if (createVaultButton) {
-                        // Check if team allocation is also valid
-                        const teamAllocation = parseInt(document.getElementById('teamAllocation').value) || 0;
-                        const walletInputs = document.querySelectorAll('#teamWallets input[type="number"]');
-                        let totalPercentage = 0;
-                        walletInputs.forEach(input => {
-                            totalPercentage += parseInt(input.value) || 0;
-                        });
-                        
-                        if (totalPercentage === teamAllocation) {
-                            createVaultButton.disabled = false;
-                            createVaultButton.className = 'btn-primary text-lg px-8 py-3';
-                        }
-                    }
-                } else if (totalAllocated > totalTaxRate) {
-                    // Exceeds maximum - red background
-                    breakdownContainer.className = 'mt-4 p-3 bg-red-100 border border-red-200 rounded-lg';
-                    breakdownElement.className = 'text-xs text-red-700';
-                    breakdownElement.innerHTML = `<strong>✗ Tax Allocation Exceeds Maximum:</strong> Platform (1%) + Distributor (${distributorTax}%) + Treasury (${treasuryTax}%) + Creator (${creatorTax}%) = <strong>${totalAllocated}%</strong> (exceeds ${totalTaxRate}%)`;
-                    
-                    // Add red border to input field
-                    if (totalTaxRateInput) {
-                        totalTaxRateInput.className = 'w-full px-3 py-2 border-2 border-red-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent';
-                    }
-                    
-                    // Show warning message
-                    if (taxValidationWarning) {
-                        taxValidationWarning.classList.remove('hidden');
-                        taxValidationWarning.querySelector('p').innerHTML = `<strong>⚠️ Warning:</strong> Your tax allocation (${totalAllocated}%) exceeds your total tax rate (${totalTaxRate}%). Please reduce the individual tax percentages.`;
-                    }
-                    
-                    // Disable create vault button
-                    if (createVaultButton) {
-                        createVaultButton.disabled = true;
-                        createVaultButton.className = 'btn-primary text-lg px-8 py-3 opacity-50 cursor-not-allowed';
-                    }
-                } else {
-                    // Under allocation - orange background
-                    breakdownContainer.className = 'mt-4 p-3 bg-orange-100 border border-orange-200 rounded-lg';
-                    breakdownElement.className = 'text-xs text-orange-700';
-                    breakdownElement.innerHTML = `<strong>⚠️ Tax Allocation Incomplete:</strong> Platform (1%) + Distributor (${distributorTax}%) + Treasury (${treasuryTax}%) + Creator (${creatorTax}%) = <strong>${totalAllocated}%</strong> (${totalTaxRate - totalAllocated}% remaining)`;
-                    
-                    // Add orange border to input field
-                    if (totalTaxRateInput) {
-                        totalTaxRateInput.className = 'w-full px-3 py-2 border-2 border-orange-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent';
-                    }
-                    
-                    // Show warning message
-                    if (taxValidationWarning) {
-                        taxValidationWarning.classList.remove('hidden');
-                        taxValidationWarning.querySelector('p').innerHTML = `<strong>⚠️ Warning:</strong> Your tax allocation (${totalAllocated}%) is less than your total tax rate (${totalTaxRate}%). Please increase the individual tax percentages.`;
-                    }
-                    
-                    // Disable create vault button
-                    if (createVaultButton) {
-                        createVaultButton.disabled = true;
-                        createVaultButton.className = 'btn-primary text-lg px-8 py-3 opacity-50 cursor-not-allowed';
-                    }
-                }
-            }
-        }
-
-        // Auto-calculate total tax rate when individual tax components change
-        function setupTaxCalculationListeners() {
-            console.log('setupTaxCalculationListeners called');
-            const taxInputs = ['totalTaxRate', 'distributorTax', 'treasuryTax', 'creatorTax'];
-            taxInputs.forEach(inputId => {
-                const input = document.getElementById(inputId);
-                if (input) {
-                    console.log('Adding listener to:', inputId);
-                    input.addEventListener('input', updateTaxBreakdown);
-                } else {
-                    console.log('Input not found:', inputId);
-                }
-            });
-            
-            // Also listen for changes to team allocation input
-            const teamAllocationInput = document.getElementById('teamAllocation');
-            if (teamAllocationInput) {
-                teamAllocationInput.addEventListener('input', updateAllocationSummary);
-            }
-            
-            // Initial calculation
-            updateTaxBreakdown();
-            updateAllocationSummary();
-        }
-
-        // Initialize tax calculation listeners when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOMContentLoaded event fired');
-            setupTaxCalculationListeners();
-            
-                            // Calculate and display Bid To Win Ratios
-                updateBidToWinRatios();
-            
-            // Initial validation check to ensure button state is correct
-            setTimeout(() => {
-                console.log('Running initial validation');
-                updateTaxBreakdown();
-                updateTeamAllocation();
-            }, 100);
-            
-            // Initialize wallet connection
-            initializeWallet();
-        });
-
-        // Real Phantom Wallet Integration
+        // Global variables
         let wallet = null;
         let connection = null;
+        let timeMultiplier = 1;
+        let activeTokens = [];
+        let deployedContracts = {};
+        let platformStats = {
+            totalTokens: 0,
+            totalRaised: 0,
+            activeAuctions: 0,
+            totalUsers: 0
+        };
 
-        async function initializeWallet() {
-            try {
-                // Initialize Solana connection to testnet
-                connection = new solanaWeb3.Connection(
-                    'https://api.testnet.solana.com',
-                    'confirmed'
-                );
-                
-                // Check if Phantom is installed
-                if ('solana' in window) {
-                    const provider = window.solana;
-                    if (provider.isPhantom) {
-                        wallet = provider;
-                        console.log('Phantom wallet detected');
-                        
-                        // Listen for wallet connection changes
-                        wallet.on('connect', () => {
-                            updateWalletUI();
-                            showNotification('✅ Wallet connected successfully!', 'success');
-                        });
-                        
-                        wallet.on('disconnect', () => {
-                            updateWalletUI();
-                            showNotification('🔌 Wallet disconnected', 'info');
-                        });
-                        
-                        // Check if already connected
-                        if (wallet.isConnected) {
-                            updateWalletUI();
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Error initializing wallet:', error);
-                showNotification('❌ Error initializing wallet', 'error');
-            }
+        // Initialize platform
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePlatform();
+            loadSampleData();
+            startTimeSimulation();
+        });
+
+        // Initialize platform
+        function initializePlatform() {
+            // Initialize Solana connection
+            connection = new solanaWeb3.Connection(
+                'https://api.testnet.solana.com',
+                'confirmed'
+            );
+            
+            // Load saved data
+            loadPlatformData();
+            
+            // Update UI
+            updatePlatformStats();
+            updateContractStatus();
         }
 
+        // Connect wallet
         async function connectWallet() {
             try {
-                if (!wallet) {
-                    showNotification('❌ Please install Phantom wallet first', 'error');
-                    window.open('https://phantom.app/', '_blank');
-                    return;
+                if (typeof window.solana !== 'undefined') {
+                    wallet = window.solana;
+                    
+                    if (!wallet.isConnected) {
+                        await wallet.connect();
+                    }
+                    
+                    updateWalletUI();
+                    showNotification('🔗 Wallet connected successfully!', 'success');
+                } else {
+                    showNotification('❌ Phantom wallet not found. Please install Phantom.', 'error');
                 }
-                
-                // Request connection
-                await wallet.connect();
-                
             } catch (error) {
-                console.error('Error connecting wallet:', error);
-                showNotification('❌ Failed to connect wallet', 'error');
+                showNotification('❌ Failed to connect wallet: ' + error.message, 'error');
             }
         }
 
-        async function disconnectWallet() {
-            try {
-                if (wallet) {
-                    await wallet.disconnect();
-                }
-            } catch (error) {
-                console.error('Error disconnecting wallet:', error);
-            }
-        }
-
-        function updateWalletUI() {
-            const connectBtn = document.getElementById('connect-wallet-btn');
-            const walletInfo = document.getElementById('wallet-info');
-            const walletAddress = document.getElementById('wallet-address');
-            
+        // Update wallet UI
+        async function updateWalletUI() {
             if (wallet && wallet.isConnected) {
-                // Show wallet info
-                connectBtn.classList.add('hidden');
-                walletInfo.classList.remove('hidden');
+                document.getElementById('wallet-button').classList.add('hidden');
+                document.getElementById('wallet-info').classList.remove('hidden');
                 
-                // Display shortened wallet address
-                const address = wallet.publicKey.toString();
-                walletAddress.textContent = `${address.slice(0, 4)}...${address.slice(-4)}`;
-                
-                // Update network info
-                showNotification('🌐 Connected to Solana Testnet', 'info');
-            } else {
-                // Show connect button
-                connectBtn.classList.remove('hidden');
-                walletInfo.classList.add('hidden');
+                // Get balance
+                try {
+                    const balance = await connection.getBalance(wallet.publicKey);
+                    const balanceInSol = (balance / 1000000000).toFixed(4);
+                    document.getElementById('wallet-balance').textContent = balanceInSol + ' SOL';
+                } catch (error) {
+                    console.error('Error getting balance:', error);
+                }
             }
         }
 
-        // Enhanced contribute function with real wallet integration
-        async function contribute(tokenId, currentRaised) {
+        // Token creation form handler
+        document.getElementById('token-creation-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
             if (!wallet || !wallet.isConnected) {
                 showNotification('❌ Please connect your wallet first', 'error');
                 return;
             }
             
-            const solAmount = parseFloat(prompt(`Enter SOL amount to contribute to ${tokenId.toUpperCase()}:`));
-            if (isNaN(solAmount) || solAmount <= 0) {
-                showNotification('❌ Invalid SOL amount', 'error');
+            // Validate tax configuration
+            const treasuryTax = parseFloat(document.getElementById('treasury-tax').value);
+            const distributorTax = parseFloat(document.getElementById('distributor-tax').value);
+            const creatorTax = parseFloat(document.getElementById('creator-tax').value);
+            
+            if (treasuryTax + distributorTax + creatorTax !== 10) {
+                document.getElementById('tax-validation').classList.remove('hidden');
+                showNotification('❌ Total tax must equal 10%', 'error');
+                return;
+            }
+            
+            document.getElementById('tax-validation').classList.add('hidden');
+            
+            // Create token
+            await createToken();
+        });
+
+        // Create token and deploy contracts
+        async function createToken() {
+            try {
+                showNotification('🚀 Deploying token and contracts...', 'info');
+                
+                // Simulate deployment (in real implementation, this would deploy actual contracts)
+                const tokenName = document.getElementById('token-name').value;
+                const tokenSymbol = document.getElementById('token-symbol').value;
+                
+                // Generate mock addresses
+                const tokenAddress = generateMockAddress();
+                const treasuryAddress = generateMockAddress();
+                const distributorAddress = generateMockAddress();
+                
+                // Store deployed contracts
+                deployedContracts = {
+                    token: tokenAddress,
+                    treasury: treasuryAddress,
+                    distributor: distributorAddress,
+                    name: tokenName,
+                    symbol: tokenSymbol,
+                    timestamp: Date.now()
+                };
+                
+                // Save to localStorage
+                localStorage.setItem('darwinDeployedContracts', JSON.stringify(deployedContracts));
+                
+                // Update UI
+                updateContractStatus();
+                addTokenToFundraising(tokenName, tokenSymbol);
+                
+                showNotification('✅ Token and contracts deployed successfully!', 'success');
+                
+                // Reset form
+                document.getElementById('token-creation-form').reset();
+                
+            } catch (error) {
+                showNotification('❌ Failed to deploy: ' + error.message, 'error');
+            }
+        }
+
+        // Generate mock address
+        function generateMockAddress() {
+            const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            let result = '';
+            for (let i = 0; i < 44; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Update contract status
+        function updateContractStatus() {
+            if (deployedContracts.token) {
+                document.getElementById('token-status').textContent = 'Deployed';
+                document.getElementById('token-status').className = 'px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs';
+                
+                document.getElementById('treasury-status').textContent = 'Deployed';
+                document.getElementById('treasury-status').className = 'px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs';
+                
+                document.getElementById('distributor-status').textContent = 'Deployed';
+                document.getElementById('distributor-status').className = 'px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs';
+                
+                document.getElementById('deployed-contracts').classList.remove('hidden');
+                document.getElementById('token-address').textContent = deployedContracts.token;
+                document.getElementById('treasury-address').textContent = deployedContracts.treasury;
+                document.getElementById('distributor-address').textContent = deployedContracts.distributor;
+            }
+        }
+
+        // Add token to fundraising
+        function addTokenToFundraising(name, symbol) {
+            const container = document.getElementById('fundraising-container');
+            
+            const tokenCard = document.createElement('div');
+            tokenCard.className = 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4';
+            tokenCard.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white font-bold">${symbol.charAt(0)}</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900">${name}</h4>
+                            <p class="text-sm text-gray-500">$${symbol}</p>
+                            <div class="mt-1">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-xs text-gray-400">Mint:</span>
+                                    <span class="text-xs font-mono text-blue-600">${deployedContracts.token}</span>
+                                    <button onclick="copyToClipboard('${deployedContracts.token}')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Fundraising</span>
+                </div>
+                
+                <div class="grid grid-cols-4 gap-4 text-sm mb-3">
+                    <div>
+                        <div class="text-gray-500">Raised SOL</div>
+                        <div class="font-medium">0.0</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Contributors</div>
+                        <div class="font-medium">0</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Progress</div>
+                        <div class="font-medium">0%</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Time Left</div>
+                        <div class="font-medium text-red-600">24h 00m</div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs text-gray-500 mb-2">
+                        <span>Fundraising Progress</span>
+                        <span>0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill bg-gradient-to-r from-blue-500 to-purple-600" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <button onclick="contribute('${symbol.toLowerCase()}')" class="w-full btn-primary">
+                    💰 Contribute SOL
+                </button>
+            `;
+            
+            container.appendChild(tokenCard);
+            
+            // Update stats
+            platformStats.totalTokens++;
+            updatePlatformStats();
+        }
+
+        // Contribute to fundraising
+        async function contribute(symbol) {
+            if (!wallet || !wallet.isConnected) {
+                showNotification('❌ Please connect your wallet first', 'error');
+                return;
+            }
+            
+            const amount = prompt(`Enter SOL amount to contribute to ${symbol.toUpperCase()}:`);
+            if (!amount || isNaN(amount) || amount <= 0) {
+                showNotification('❌ Invalid amount', 'error');
                 return;
             }
             
             try {
-                // Show loading notification
-                showNotification('⏳ Processing transaction...', 'info');
+                showNotification(`💰 Contributing ${amount} SOL to ${symbol.toUpperCase()}...`, 'info');
                 
-                // Here you would integrate with your deployed smart contract
-                // For now, we'll simulate the transaction
+                // Simulate contribution (in real implementation, this would send actual SOL)
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                const newRaised = currentRaised + solAmount;
-                const tokensReceived = (solAmount / newRaised) * 1000000; // Pro-rata calculation
+                showNotification(`✅ Successfully contributed ${amount} SOL to ${symbol.toUpperCase()}!`, 'success');
                 
-                // Update the token's raised amount
-                const tokenElement = document.querySelector(`[data-token-id="${tokenId}"]`);
-                if (tokenElement) {
-                    const raisedElement = tokenElement.querySelector('.raised-amount');
-                    if (raisedElement) {
-                        raisedElement.textContent = `${newRaised.toFixed(2)} SOL`;
-                    }
-                    
-                    const progressElement = tokenElement.querySelector('.progress-fill');
-                    if (progressElement) {
-                        const progress = Math.min((newRaised / 100) * 100, 100);
-                        progressElement.style.width = `${progress}%`;
-                    }
-                }
-                
-                // Show success notification with clear pro-rata explanation
-                const sharePercentage = ((solAmount / newRaised) * 100).toFixed(2);
-                showNotification(`✅ Successfully contributed ${solAmount} SOL to ${tokenId.toUpperCase()}! Your share: ${sharePercentage}% of public sale tokens (pro-rata distribution).`, 'success');
+                // Update platform stats
+                platformStats.totalRaised += parseFloat(amount);
+                updatePlatformStats();
                 
             } catch (error) {
-                console.error('Transaction error:', error);
-                showNotification('❌ Transaction failed. Please try again.', 'error');
+                showNotification('❌ Contribution failed: ' + error.message, 'error');
             }
         }
 
-        // Function to add token info to the page
-        function addTokenInfoToPage(mintAddress, accountAddress) {
-            // Remove existing token info section if it exists
-            const existingSection = document.getElementById('token-info-section');
-            if (existingSection) {
-                existingSection.remove();
-            }
+        // Load sample data
+        function loadSampleData() {
+            // Add sample auction
+            addSampleAuction('MEGA Protocol', 'MEGA', 2847.3, 1000, '2h 34m');
+            addSampleAuction('Web3 Gaming', 'GAME', 1634.7, 750, '5h 12m');
+            addSampleAuction('Metaverse Token', 'META', 3245.1, 1500, '12h 12m');
             
-            // Create new token info section
-            const tokenInfoSection = document.createElement('div');
-            tokenInfoSection.id = 'token-info-section';
-            tokenInfoSection.className = 'bg-green-50 border border-green-200 rounded-lg p-6 mb-6';
-            tokenInfoSection.innerHTML = `
-                <h3 class="text-lg font-semibold text-green-800 mb-4">🎉 Token Deployed Successfully!</h3>
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-sm font-medium text-green-700 mb-1">Token Mint Address (Copy this to import in Phantom):</label>
-                        <div class="flex items-center space-x-2">
-                            <input type="text" value="${mintAddress}" readonly class="flex-1 px-3 py-2 border border-green-300 rounded bg-white text-sm font-mono" id="mint-address-input">
-                            <button onclick="copyToClipboard('${mintAddress}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm">
-                                📋 Copy
-                            </button>
+            platformStats.activeAuctions = 3;
+            updatePlatformStats();
+        }
+
+        // Add sample auction
+        function addSampleAuction(name, symbol, treasury, minBid, timeLeft) {
+            const container = document.getElementById('auctions-container');
+            
+            const auctionCard = document.createElement('div');
+            auctionCard.className = 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4';
+            auctionCard.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white font-bold">${symbol.charAt(0)}</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900">${name}</h4>
+                            <p class="text-sm text-gray-500">$${symbol}</p>
+                            <div class="mt-1">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-xs text-gray-400">Mint:</span>
+                                    <span class="text-xs font-mono text-blue-600">${generateMockAddress()}</span>
+                                    <button onclick="copyToClipboard('${generateMockAddress()}')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-green-700 mb-1">Token Account Address:</label>
-                        <input type="text" value="${accountAddress}" readonly class="w-full px-3 py-2 border border-green-300 rounded bg-white text-sm font-mono">
-                    </div>
-                    <div class="bg-blue-50 border border-blue-200 rounded p-3">
-                        <p class="text-sm text-blue-800">
-                            <strong>How to import in Phantom:</strong><br>
-                            1. Open Phantom wallet<br>
-                            2. Click "+" → "Import Token"<br>
-                            3. Paste the mint address above<br>
-                            4. Click "Import"
-                        </p>
+                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
+                </div>
+                
+                <div class="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-purple-700 mb-1">Bid To Win Ratio</div>
+                        <div class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">${((minBid / treasury) * 100).toFixed(3)}%</div>
+                        <div class="text-xs text-purple-600 mt-1">Cost of min bid vs entire treasury</div>
                     </div>
                 </div>
+                
+                <div class="grid grid-cols-4 gap-4 text-sm mb-3">
+                    <div>
+                        <div class="text-gray-500">Treasury SOL</div>
+                        <div class="font-medium">${treasury.toLocaleString()}</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Minimum Bid</div>
+                        <div class="font-medium text-center">${minBid} $${symbol}<br><span class="text-xs text-gray-500">($${(minBid * 0.2).toFixed(0)})</span></div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Time Alive</div>
+                        <div class="font-medium text-blue-600">1h 26m</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-500">Time Left</div>
+                        <div class="font-medium text-red-600">${timeLeft}</div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs text-gray-500 mb-2">
+                        <span>Auction Timer</span>
+                        <span>${timeLeft}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill bg-gradient-to-r from-green-500 to-emerald-600" style="width: 65%"></div>
+                    </div>
+                </div>
+                
+                <div class="text-center mb-3">
+                    <div class="text-sm text-gray-600">Min Holding: <span class="font-semibold text-green-600">${minBid} tokens</span></div>
+                </div>
+                
+                <button onclick="placeBid('${symbol.toLowerCase()}')" class="w-full btn-success">
+                    🏆 Place Bid
+                </button>
             `;
             
-            // Insert at the top of the main content
-            const mainContent = document.querySelector('.container');
-            if (mainContent) {
-                mainContent.insertBefore(tokenInfoSection, mainContent.firstChild);
+            container.appendChild(auctionCard);
+        }
+
+        // Place bid
+        async function placeBid(symbol) {
+            if (!wallet || !wallet.isConnected) {
+                showNotification('❌ Please connect your wallet first', 'error');
+                return;
+            }
+            
+            const amount = prompt(`Enter bid amount for ${symbol.toUpperCase()} auction:`);
+            if (!amount || isNaN(amount) || amount <= 0) {
+                showNotification('❌ Invalid bid amount', 'error');
+                return;
+            }
+            
+            try {
+                showNotification(`🏆 Placing bid of ${amount} SOL...`, 'info');
+                
+                // Simulate bid placement
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                showNotification(`✅ Bid placed successfully! You are now the highest bidder.`, 'success');
+                
+            } catch (error) {
+                showNotification('❌ Bid failed: ' + error.message, 'error');
             }
         }
-        
-        // Function to copy text to clipboard
+
+        // Time acceleration
+        function accelerateTime(multiplier) {
+            timeMultiplier = multiplier;
+            showNotification(`⏱️ Time accelerated to ${multiplier}x speed`, 'info');
+        }
+
+        // Skip to auction
+        function skipToAuction() {
+            showNotification('⏭️ Skipping to auction phase...', 'info');
+        }
+
+        // Simulate bid
+        function simulateBid() {
+            showNotification('💰 Simulating bid placement...', 'info');
+        }
+
+        // Simulate distribution
+        function simulateDistribution() {
+            showNotification('📊 Simulating daily distribution...', 'info');
+        }
+
+        // Reset platform
+        function resetPlatform() {
+            if (confirm('Are you sure you want to reset the platform? This will clear all data.')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // Get test SOL
+        async function getTestSol() {
+            if (!wallet || !wallet.isConnected) {
+                showNotification('❌ Please connect your wallet first', 'error');
+                return;
+            }
+            
+            try {
+                showNotification('💧 Requesting test SOL...', 'info');
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                showNotification('✅ Test SOL received! Check your wallet.', 'success');
+                updateWalletUI();
+                
+            } catch (error) {
+                showNotification('❌ Failed to get test SOL: ' + error.message, 'error');
+            }
+        }
+
+        // Check balances
+        async function checkBalances() {
+            if (!wallet || !wallet.isConnected) {
+                showNotification('❌ Please connect your wallet first', 'error');
+                return;
+            }
+            
+            try {
+                const balance = await connection.getBalance(wallet.publicKey);
+                const balanceInSol = (balance / 1000000000).toFixed(4);
+                
+                showNotification(`💰 Wallet Balance: ${balanceInSol} SOL`, 'info');
+                
+            } catch (error) {
+                showNotification('❌ Failed to check balance: ' + error.message, 'error');
+            }
+        }
+
+        // Export data
+        function exportData() {
+            const data = {
+                deployedContracts,
+                platformStats,
+                activeTokens,
+                timestamp: Date.now()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'darwin-platform-data.json';
+            a.click();
+            
+            showNotification('📤 Data exported successfully!', 'success');
+        }
+
+        // Import WIN token
+        function importWinToken() {
+            const mintAddress = 'So11111111111111111111111111111111111111112';
+            showNotification(`📋 WIN token mint address copied: ${mintAddress}`, 'success');
+            copyToClipboard(mintAddress);
+        }
+
+        // Copy to clipboard
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                showNotification('📋 Mint address copied to clipboard!', 'success');
+                showNotification('📋 Copied to clipboard!', 'success');
             }).catch(() => {
                 showNotification('❌ Failed to copy. Please copy manually.', 'error');
             });
         }
 
-        // Deploy smart contracts function
-        async function deploySmartContracts() {
-            if (!wallet || !wallet.isConnected) {
-                showNotification('❌ Please connect your wallet first', 'error');
-                return;
+        // Update platform stats
+        function updatePlatformStats() {
+            document.getElementById('total-tokens').textContent = platformStats.totalTokens;
+            document.getElementById('total-raised').textContent = platformStats.totalRaised.toFixed(1) + ' SOL';
+            document.getElementById('active-auctions').textContent = platformStats.activeAuctions;
+            document.getElementById('total-users').textContent = platformStats.totalUsers;
+        }
+
+        // Load platform data
+        function loadPlatformData() {
+            const savedContracts = localStorage.getItem('darwinDeployedContracts');
+            if (savedContracts) {
+                deployedContracts = JSON.parse(savedContracts);
+                updateContractStatus();
             }
+        }
+
+        // Start time simulation
+        function startTimeSimulation() {
+            setInterval(() => {
+                updateTimers();
+            }, 1000 * timeMultiplier);
+        }
+
+        // Update timers
+        function updateTimers() {
+            // In real implementation, this would update all timers
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
             
-            try {
-                showNotification('🚀 Starting smart contract deployment...', 'info');
-                
-                // Check embedded functions
-                if (typeof createMint !== 'function' || typeof createAccount !== 'function' || typeof mintTo !== 'function') {
-                    showNotification('❌ SPL Token functions not available. Please refresh the page.', 'error');
-                    return;
-                }
-                
-                showNotification('✅ SPL Token library verified!', 'success');
-                
-                // Check wallet balance
-                const balance = await connection.getBalance(wallet.publicKey);
-                const balanceInSol = balance / 1000000000; // Convert lamports to SOL
-                
-                if (balanceInSol < 0.1) {
-                    showNotification(`❌ Insufficient SOL for deployment. You have ${balanceInSol.toFixed(4)} SOL, need at least 0.1 SOL`, 'error');
-                    return;
-                }
-                
-                showNotification(`✅ Sufficient SOL found! (${balanceInSol.toFixed(4)} SOL) Creating token mint...`, 'info');
-                
-                // Create token mint
-                const tokenMint = await createMint(
-                    connection,
-                    wallet,
-                    wallet.publicKey,
-                    null,
-                    9 // 9 decimals
-                );
-                
-                showNotification(`✅ Token mint created: ${tokenMint.toString().slice(0, 8)}...`, 'success');
-                
-                // Create token account
-                const tokenAccount = await createAccount(
-                    connection,
-                    wallet,
-                    tokenMint,
-                    wallet.publicKey
-                );
-                
-                showNotification(`✅ Token account created: ${tokenAccount.toString().slice(0, 8)}...`, 'success');
-                
-                // Mint initial supply (1 billion tokens)
-                await mintTo(
-                    connection,
-                    wallet,
-                    tokenMint,
-                    tokenAccount,
-                    wallet.publicKey,
-                    1000000000000 // 1 billion tokens with 9 decimals
-                );
-                
-                showNotification('🎉 Smart contracts deployed successfully!', 'success');
-                
-                // Store deployment info
-                const deploymentInfo = {
-                    tokenMint: tokenMint.toString(),
-                    tokenAccount: tokenAccount.toString(),
-                    deployer: wallet.publicKey.toString(),
-                    timestamp: new Date().toISOString()
-                };
-                
-                localStorage.setItem('darwinDeployment', JSON.stringify(deploymentInfo));
-                
-                // Store token info for contribution notifications
-                const tokenId = 'darwin'; // Default token ID
-                window.deployedTokens[tokenId] = {
-                    mintAddress: tokenMint.toString(),
-                    accountAddress: tokenAccount.toString()
-                };
-                
-                // Show deployment summary with full addresses
-                setTimeout(() => {
-                    showNotification(`📋 Deployment Summary:\n\nToken Mint Address: ${tokenMint.toString()}\nToken Account: ${tokenAccount.toString()}\n\nCopy the mint address and import it in Phantom!`, 'info');
-                    
-                    // Add token info to the page
-                    addTokenInfoToPage(tokenMint.toString(), tokenAccount.toString());
-                }, 2000);
-                
-            } catch (error) {
-                console.error('Deployment error:', error);
-                showNotification(`❌ Deployment failed: ${error.message}`, 'error');
+            container.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Tax validation
+        document.getElementById('treasury-tax').addEventListener('input', validateTax);
+        document.getElementById('distributor-tax').addEventListener('input', validateTax);
+        document.getElementById('creator-tax').addEventListener('input', validateTax);
+
+        function validateTax() {
+            const treasuryTax = parseFloat(document.getElementById('treasury-tax').value) || 0;
+            const distributorTax = parseFloat(document.getElementById('distributor-tax').value) || 0;
+            const creatorTax = parseFloat(document.getElementById('creator-tax').value) || 0;
+            
+            const total = treasuryTax + distributorTax + creatorTax;
+            const validationElement = document.getElementById('tax-validation');
+            
+            if (total > 10) {
+                validationElement.textContent = `Total tax exceeds 10% (${total}%)`;
+                validationElement.classList.remove('hidden');
+            } else if (total < 10) {
+                validationElement.textContent = `Total tax must equal 10% (currently ${total}%)`;
+                validationElement.classList.remove('hidden');
+            } else {
+                validationElement.classList.add('hidden');
             }
         }
     </script>
