@@ -300,6 +300,13 @@
                                                 <div>
                                                     <h3 class="font-semibold text-gray-900">DARWIN Token</h3>
                                                     <p class="text-sm text-gray-500">$WIN</p>
+                                                    <div class="mt-1">
+                                                        <div class="flex items-center space-x-1">
+                                                            <span class="text-xs text-gray-400">Mint:</span>
+                                                            <span class="text-xs font-mono text-blue-600" id="mint-darwin">So11111111111111111111111111111111111111112</span>
+                                                            <button onclick="copyMintAddress('darwin')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
@@ -349,6 +356,13 @@
                                                 <div>
                                                     <h3 class="font-semibold text-gray-900">DeFi Master</h3>
                                                     <p class="text-sm text-gray-500">$DEFI</p>
+                                                    <div class="mt-1">
+                                                        <div class="flex items-center space-x-1">
+                                                            <span class="text-xs text-gray-400">Mint:</span>
+                                                            <span class="text-xs font-mono text-blue-600" id="mint-defi">Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB</span>
+                                                            <button onclick="copyMintAddress('defi')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                                                                          <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Fundraising</span>
@@ -457,6 +471,13 @@
                                                 <div>
                                                     <h3 class="font-semibold text-gray-900">MEGA Protocol</h3>
                                                     <p class="text-sm text-gray-500">$MEGA</p>
+                                                    <div class="mt-1">
+                                                        <div class="flex items-center space-x-1">
+                                                            <span class="text-xs text-gray-400">Mint:</span>
+                                                            <span class="text-xs font-mono text-blue-600" id="mint-mega">7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU</span>
+                                                            <button onclick="copyMintAddress('mega')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
@@ -519,6 +540,13 @@
                                                 <div>
                                                     <h3 class="font-semibold text-gray-900">Web3 Gaming</h3>
                                                     <p class="text-sm text-gray-500">$GAME</p>
+                                                    <div class="mt-1">
+                                                        <div class="flex items-center space-x-1">
+                                                            <span class="text-xs text-gray-400">Mint:</span>
+                                                            <span class="text-xs font-mono text-blue-600" id="mint-game">9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM</span>
+                                                            <button onclick="copyMintAddress('game')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
@@ -581,6 +609,13 @@
                                                 <div>
                                                     <h3 class="font-semibold text-gray-900">Metaverse Token</h3>
                                                     <p class="text-sm text-gray-500">$META</p>
+                                                    <div class="mt-1">
+                                                        <div class="flex items-center space-x-1">
+                                                            <span class="text-xs text-gray-400">Mint:</span>
+                                                            <span class="text-xs font-mono text-blue-600" id="mint-meta">EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v</span>
+                                                            <button onclick="copyMintAddress('meta')" class="text-xs text-gray-500 hover:text-blue-600">📋</button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Auction</span>
@@ -2107,6 +2142,19 @@
             }).catch(() => {
                 showNotification('❌ Failed to copy. Please copy manually.', 'error');
             });
+        }
+        
+        // Function to copy mint address from auction cards
+        function copyMintAddress(tokenSymbol) {
+            const mintElement = document.getElementById(`mint-${tokenSymbol}`);
+            if (mintElement) {
+                const mintAddress = mintElement.textContent;
+                navigator.clipboard.writeText(mintAddress).then(() => {
+                    showNotification(`📋 ${tokenSymbol.toUpperCase()} mint address copied!`, 'success');
+                }).catch(() => {
+                    showNotification('❌ Failed to copy. Please copy manually.', 'error');
+                });
+            }
         }
 
         // Deploy smart contracts function
