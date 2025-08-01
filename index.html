@@ -5,55 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Darwin Platform - Token Launchpad</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+    
+    <!-- Load SPL Token with explicit global assignment -->
     <script>
-        // Robust SPL Token library detection and fallback
-        function ensureSPLTokenLibrary() {
-            // Try multiple possible global variables
-            const possibleNames = ['splToken', 'spl', 'window.splToken', 'window.spl'];
-            let tokenLib = null;
-            
-            for (const name of possibleNames) {
-                if (name.startsWith('window.')) {
-                    const globalName = name.replace('window.', '');
-                    if (typeof window[globalName] !== 'undefined') {
-                        tokenLib = window[globalName];
-                        break;
-                    }
-                } else {
-                    if (typeof window[name] !== 'undefined') {
-                        tokenLib = window[name];
-                        break;
-                    }
-                }
+        // Pre-define the global variable
+        window.splToken = {};
+        
+        // Load SPL Token library
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js';
+        script.onload = function() {
+            console.log('SPL Token library loaded successfully');
+            // Ensure it's available globally
+            if (typeof splToken !== 'undefined') {
+                window.splToken = splToken;
+                console.log('SPL Token assigned to window.splToken');
             }
-            
-            // If still not found, try to access it directly
-            if (!tokenLib && typeof splToken !== 'undefined') {
-                tokenLib = splToken;
-            }
-            
-            // Set it globally for consistent access
-            if (tokenLib) {
-                window.splToken = tokenLib;
-                console.log('✅ SPL Token library found and set globally');
+        };
+        script.onerror = function() {
+            console.error('Failed to load SPL Token library');
+        };
+        document.head.appendChild(script);
+    </script>
+    <script>
+        // Simple SPL Token library detection
+        let splTokenLibrary = null;
+        
+        function detectSPLTokenLibrary() {
+            if (typeof splToken !== 'undefined' && typeof splToken.createMint === 'function') {
+                splTokenLibrary = splToken;
+                console.log('✅ Using splToken directly');
+                return true;
+            } else if (typeof window.splToken !== 'undefined' && typeof window.splToken.createMint === 'function') {
+                splTokenLibrary = window.splToken;
+                console.log('✅ Using window.splToken');
+                return true;
+            } else if (typeof window.spl !== 'undefined' && typeof window.spl.createMint === 'function') {
+                splTokenLibrary = window.spl;
+                console.log('✅ Using window.spl');
                 return true;
             }
             
-            console.error('❌ SPL Token library not found');
+            console.log('❌ SPL Token library not found');
             return false;
         }
         
-        // Try to ensure library is available after page loads
+        // Try to detect library after page loads
         window.addEventListener('load', function() {
-            setTimeout(ensureSPLTokenLibrary, 1000);
+            setTimeout(detectSPLTokenLibrary, 2000);
         });
-        
-        // Also try immediately
-        ensureSPLTokenLibrary();
     </script>
     <style>
         .btn-primary {
@@ -2015,31 +2018,13 @@
             try {
                 showNotification('🚀 Starting smart contract deployment...', 'info');
                 
-                // Robust SPL Token library detection
-                let tokenLib = null;
-                
-                // Try multiple detection methods
-                if (typeof splToken !== 'undefined' && typeof splToken.createMint === 'function') {
-                    tokenLib = splToken;
-                } else if (typeof window.splToken !== 'undefined' && typeof window.splToken.createMint === 'function') {
-                    tokenLib = window.splToken;
-                } else if (typeof window.spl !== 'undefined' && typeof window.spl.createMint === 'function') {
-                    tokenLib = window.spl;
-                } else {
-                    // Try to ensure library is available
-                    if (ensureSPLTokenLibrary()) {
-                        tokenLib = window.splToken;
+                // Simple SPL Token library check
+                if (!splTokenLibrary || typeof splTokenLibrary.createMint !== 'function') {
+                    // Try to detect library one more time
+                    if (!detectSPLTokenLibrary()) {
+                        showNotification('❌ SPL Token library not available. Please refresh the page.', 'error');
+                        return;
                     }
-                }
-                
-                if (!tokenLib || typeof tokenLib.createMint !== 'function') {
-                    showNotification('❌ SPL Token library not available. Please refresh the page.', 'error');
-                    console.error('SPL Token library not found. Available globals:', {
-                        splToken: typeof splToken,
-                        windowSplToken: typeof window.splToken,
-                        windowSpl: typeof window.spl
-                    });
-                    return;
                 }
                 
                 showNotification('✅ SPL Token library verified!', 'success');
@@ -2056,7 +2041,7 @@
                 showNotification(`✅ Sufficient SOL found! (${balanceInSol.toFixed(4)} SOL) Creating token mint...`, 'info');
                 
                 // Create token mint
-                const tokenMint = await tokenLib.createMint(
+                const tokenMint = await splTokenLibrary.createMint(
                     connection,
                     wallet,
                     wallet.publicKey,
@@ -2067,7 +2052,7 @@
                 showNotification(`✅ Token mint created: ${tokenMint.toString().slice(0, 8)}...`, 'success');
                 
                 // Create token account
-                const tokenAccount = await tokenLib.createAccount(
+                const tokenAccount = await splTokenLibrary.createAccount(
                     connection,
                     wallet,
                     tokenMint,
@@ -2077,7 +2062,7 @@
                 showNotification(`✅ Token account created: ${tokenAccount.toString().slice(0, 8)}...`, 'success');
                 
                 // Mint initial supply (1 billion tokens)
-                await tokenLib.mintTo(
+                await splTokenLibrary.mintTo(
                     connection,
                     wallet,
                     tokenMint,
